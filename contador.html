@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contador</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    /* Container horizontal para título + imagem */
+    .title-container {
+      display: flex;
+      align-items: center;
+      gap: 10px; /* espaço entre imagem e texto */
+      margin-bottom: 15px;
+    }
+    h2 {
+      margin: 0;
+    }
+    .buttons {
+      margin-bottom: 15px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    button {
+      padding: 8px 15px;
+      background-color: #ccc;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      text-align: center;
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+      vertical-align: middle;
+    }
+    .qty-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      align-items: center;
+    }
+    .qty-buttons button {
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-weight: normal;
+      background-color: #ddd;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: none;
+    }
+    input[type="text"], input[type="number"] {
+      width: 60px;
+      text-align: center;
+      border: none;
+      border-bottom: 1px solid black;
+      outline: none;
+      font-size: 16px;
+    }
+    .header-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-weight: normal;
+    }
+    .header-label img {
+      width: 20px;
+      height: 20px;
+      user-select: none;
+    }
+    button img {
+      width: 18px;
+      height: 18px;
+      user-select: none;
+      pointer-events: none;
+    }
+    .title-icon {
+      width: 30px;
+      height: 30px;
+      user-select: none;
+    }
+    /* Estilo do campo total qtd */
+    #totalQtd {
+      font-weight: bold;
+      font-size: 16px;
+      user-select: none;
+      min-width: 140px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Container do título com a imagem panic -->
+  <div class="title-container">
+    <img src="icons/panic.png" alt="Panic Icon" class="title-icon" />
+    <h2>Contador</h2>
+  </div>
+
+  <div class="buttons">
+    <div class="button-group">
+      <button id="clearBtn">
+        <img src="icons/clean.png" alt="Limpar" />
+        LIMPAR
+      </button>
+      <button id="addBtn" title="Adicionar linha">
+        <img src="icons/add.png" alt="Adicionar" />
+      </button>
+      <button id="saveBtn">
+        <img src="icons/save.png" alt="Salvar" />
+        SALVAR
+      </button>
+      <button id="copyBtn">COPIAR</button>
+    </div>
+    <div id="totalQtd">Total Qtd: 0</div>
+  </div>
+
+  <table id="counterTable">
+    <thead>
+      <tr>
+        <th>
+          <div class="header-label">
+            <img src="icons/toalet_paper.png" alt="SKU" />
+            <span>Sku</span>
+          </div>
+        </th>
+        <th>Qtd</th>
+        <th>
+          <div class="header-label">
+            <img src="icons/largura.png" alt="Lastro" />
+            <span>Lastro</span>
+          </div>
+        </th>
+        <th>
+          <div class="header-label">
+            <img src="icons/altura.png" alt="Altura" />
+            <span>Altura</span>
+          </div>
+        </th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <!-- Linhas geradas por JS -->
+    </tbody>
+  </table>
+
+  <script>
+    let data = [
+      { sku: '', qtd: '', lastro: '', altura: '' }
+    ];
+
+    const tableBody = document.getElementById('tableBody');
+    const totalQtdDiv = document.getElementById('totalQtd');
+
+    function updateTotalQtd() {
+      const total = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
+      totalQtdDiv.textContent = `Total Qtd: ${total}`;
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = '';
+      data.forEach((item, index) => {
+        const row = document.createElement('tr');
+
+        // SKU input
+        const skuTd = document.createElement('td');
+        const skuInput = document.createElement('input');
+        skuInput.type = 'text';
+        skuInput.value = item.sku;
+        skuInput.oninput = e => {
+          data[index].sku = e.target.value;
+        };
+        skuTd.appendChild(skuInput);
+        row.appendChild(skuTd);
+
+        // Qtd com botões
+        const qtdTd = document.createElement('td');
+        const qtyDiv = document.createElement('div');
+        qtyDiv.className = 'qty-buttons';
+
+        const btnMinus = document.createElement('button');
+        btnMinus.title = 'Diminuir quantidade';
+        btnMinus.type = 'button';
+        btnMinus.innerHTML = `<img src="icons/subtract.png" alt="-" />`;
+        btnMinus.onclick = () => {
+          if (data[index].qtd > 0) {
+            data[index].qtd--;
+            renderTable();
+          }
+        };
+
+        const qtdValue = document.createElement('input');
+        qtdValue.type = 'number';
+        qtdValue.value = item.qtd;
+        qtdValue.min = 0;
+        qtdValue.oninput = e => {
+          const val = Number(e.target.value);
+          if (val >= 0) {
+            data[index].qtd = val;
+          }
+          renderTable();
+        };
+
+        const btnPlus = document.createElement('button');
+        btnPlus.title = 'Aumentar quantidade';
+        btnPlus.type = 'button';
+        btnPlus.innerHTML = `<img src="icons/add.png" alt="+" />`;
+        btnPlus.onclick = () => {
+          data[index].qtd++;
+          renderTable();
+        };
+
+        qtyDiv.appendChild(btnMinus);
+        qtyDiv.appendChild(qtdValue);
+        qtyDiv.appendChild(btnPlus);
+        qtdTd.appendChild(qtyDiv);
+        row.appendChild(qtdTd);
+
+        // Lastro input number editável
+        const lastroTd = document.createElement('td');
+        const lastroInput = document.createElement('input');
+        lastroInput.type = 'number';
+        lastroInput.min = 0;
+        lastroInput.value = item.lastro;
+        lastroInput.oninput = e => {
+          const val = Number(e.target.value);
+          if (val >= 0) {
+            data[index].lastro = val;
+          }
+        };
+        lastroTd.appendChild(lastroInput);
+        row.appendChild(lastroTd);
+
+        // Altura input number editável
+        const alturaTd = document.createElement('td');
+        const alturaInput = document.createElement('input');
+        alturaInput.type = 'number';
+        alturaInput.min = 0;
+        alturaInput.value = item.altura;
+        alturaInput.oninput = e => {
+          const val = Number(e.target.value);
+          if (val >= 0) {
+            data[index].altura = val;
+          }
+        };
+        alturaTd.appendChild(alturaInput);
+        row.appendChild(alturaTd);
+
+        tableBody.appendChild(row);
+      });
+      updateTotalQtd(); // Atualiza total após renderização
+    }
+
+    // Limpar tabela
+    document.getElementById('clearBtn').onclick = () => {
+      data = [];
+      renderTable();
+    };
+
+    // Adicionar nova linha
+    document.getElementById('addBtn').onclick = () => {
+      data.push({ sku: '', qtd: 0, lastro: 0, altura: 0 });
+      renderTable();
+    };
+
+    // Salvar (exemplo simples)
+    document.getElementById('saveBtn').onclick = () => {
+      alert('Salvando dados:\n' + JSON.stringify(data, null, 2));
+    };
+
+    // Copiar e compartilhar
+    document.getElementById('copyBtn').onclick = async () => {
+      if (data.length === 0) {
+        alert('Não há dados para copiar.');
+        return;
+      }
+      // Formata texto com tabulações
+      let text = 'Sku\tQtd\tLastro\tAltura\n';
+      data.forEach(item => {
+        text += `${item.sku || '-'}\t${item.qtd}\t${item.lastro}\t${item.altura}\n`;
+      });
+
+      try {
+        await navigator.clipboard.writeText(text);
+        alert('Dados copiados para a área de transferência.');
+
+        if (navigator.share) {
+          navigator.share({
+            title: 'Dados do Contador',
+            text,
+          })
+          .then(() => console.log('Compartilhamento realizado com sucesso.'))
+          .catch(err => console.warn('Erro no compartilhamento: ', err));
+        }
+
+      } catch (err) {
+        alert('Erro ao copiar os dados: ' + err);
+      }
+    };
+
+    renderTable();
+  </script>
+</body>
+</html>
