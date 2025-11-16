@@ -113,6 +113,16 @@
       text-align: right;
     }
   </style>
+  <link rel="manifest" href="manifest.json">
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("Service Worker registrado."))
+        .catch(err => console.log("Erro no Service Worker:", err));
+    }
+  </script>
+  
 </head>
 <body>
 
