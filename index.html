@@ -38,6 +38,7 @@
     }
     h2 {
       margin: 0;
+      font-size: 24px;
     }
     .buttons {
       margin-bottom: 15px;
@@ -51,6 +52,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
+      flex-wrap: wrap;
     }
     button {
       padding: 8px 15px;
@@ -63,6 +65,7 @@
       align-items: center;
       gap: 5px;
       transition: background-color 0.3s;
+      font-size: 14px;
     }
     button:hover {
       background-color: #999;
@@ -74,12 +77,15 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
+      overflow-x: auto; /* Rola horizontal em telas pequenas */
+      display: block;
     }
     th, td {
       text-align: center;
       padding: 8px;
       border-bottom: 1px solid var(--border-color);
       vertical-align: middle;
+      white-space: nowrap; /* Evita quebra de texto */
     }
     .qty-buttons {
       display: flex;
@@ -141,6 +147,100 @@
       user-select: none;
       min-width: 140px;
       text-align: right;
+    }
+
+    /* Media queries para responsividade */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      .title-container {
+        gap: 5px;
+        margin-bottom: 10px;
+      }
+      h2 {
+        font-size: 20px;
+      }
+      .buttons {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .button-group {
+        justify-content: center;
+        gap: 8px;
+      }
+      button {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      .qty-buttons button {
+        width: 25px;
+        height: 25px;
+      }
+      input[type="text"], input[type="number"] {
+        width: 50px;
+        font-size: 14px;
+      }
+      .header-label img {
+        width: 16px;
+        height: 16px;
+      }
+      button img {
+        width: 14px;
+        height: 14px;
+      }
+      .title-icon {
+        width: 25px;
+        height: 25px;
+      }
+      #totalQtd {
+        font-size: 14px;
+        text-align: center;
+        min-width: auto;
+      }
+      th, td {
+        padding: 6px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .button-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      button {
+        justify-content: center;
+      }
+      .qty-buttons {
+        gap: 3px;
+      }
+      .qty-buttons button {
+        width: 20px;
+        height: 20px;
+      }
+      input[type="text"], input[type="number"] {
+        width: 40px;
+        font-size: 12px;
+      }
+      .header-label {
+        gap: 4px;
+      }
+      .header-label img {
+        width: 14px;
+        height: 14px;
+      }
+      button img {
+        width: 12px;
+        height: 12px;
+      }
+      .title-icon {
+        width: 20px;
+        height: 20px;
+      }
+      h2 {
+        font-size: 18px;
+      }
     }
   </style>
   <link rel="manifest" href="manifest.json">
