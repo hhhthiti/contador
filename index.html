@@ -305,33 +305,38 @@
 
     // Copiar e compartilhar
     document.getElementById('copyBtn').onclick = async () => {
-      if (data.length === 0) {
-        alert('Não há dados para copiar.');
-        return;
-      }
-      // Formata texto com tabulações
-      let text = 'Sku\tQtd\tLastro\tAltura\n';
-      data.forEach(item => {
-        text += `${item.sku || '-'}\t${item.qtd}\t${item.lastro}\t${item.altura}\n`;
-      });
+  if (data.length === 0) {
+    alert('Não há dados para copiar.');
+    return;
+  }
+  // Calcula total
+  const totalQtd = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
 
-      try {
-        await navigator.clipboard.writeText(text);
-        alert('Dados copiados para a área de transferência.');
+  // Formata texto com tabulações, sem cabeçalho, acrescentando total no final
+  let text = '';
+  data.forEach(item => {
+    text += `${item.sku || '-'}\t${item.qtd}\t${item.lastro}\t${item.altura}\n`;
+  });
+  text += `Total Qtd:\t${totalQtd}`;
 
-        if (navigator.share) {
-          navigator.share({
-            title: 'Dados do Contador',
-            text,
-          })
-          .then(() => console.log('Compartilhamento realizado com sucesso.'))
-          .catch(err => console.warn('Erro no compartilhamento: ', err));
-        }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Dados copiados para a área de transferência.');
 
-      } catch (err) {
-        alert('Erro ao copiar os dados: ' + err);
-      }
-    };
+    if (navigator.share) {
+      navigator.share({
+        title: 'Dados do Contador',
+        text,
+      })
+      .then(() => console.log('Compartilhamento realizado com sucesso.'))
+      .catch(err => console.warn('Erro no compartilhamento: ', err));
+    }
+
+  } catch (err) {
+    alert('Erro ao copiar os dados: ' + err);
+  }
+};
+
 
     renderTable();
   </script>
