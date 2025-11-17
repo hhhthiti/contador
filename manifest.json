@@ -1,0 +1,21 @@
+{
+    "name": "Contador de SKU",
+    "short_name": "Contador",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "icons": [
+      {
+        "src": "icons/panic.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "icons/panic.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }
+  
