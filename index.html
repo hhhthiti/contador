@@ -5,15 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Contador</title>
   <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #000000;
+      --border-color: #ddd;
+      --button-bg: #ccc;
+      --input-border: #000000;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --text-color: #ffffff;
+      --border-color: #333;
+      --button-bg: #555;
+      --input-border: #ffffff;
+    }
+
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
     }
+
     /* Container horizontal para título + imagem */
     .title-container {
       display: flex;
       align-items: center;
-      gap: 10px; /* espaço entre imagem e texto */
+      gap: 10px;
       margin-bottom: 15px;
     }
     h2 {
@@ -34,7 +54,7 @@
     }
     button {
       padding: 8px 15px;
-      background-color: #ccc;
+      background-color: var(--button-bg);
       border: none;
       border-radius: 4px;
       cursor: pointer;
@@ -42,6 +62,13 @@
       display: flex;
       align-items: center;
       gap: 5px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #999;
+    }
+    body.dark-mode button:hover {
+      background-color: #777;
     }
     table {
       width: 100%;
@@ -51,7 +78,7 @@
     th, td {
       text-align: center;
       padding: 8px;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--border-color);
       vertical-align: middle;
     }
     .qty-buttons {
@@ -65,21 +92,24 @@
       width: 30px;
       height: 30px;
       font-weight: normal;
-      background-color: #ddd;
+      background-color: var(--button-bg);
       cursor: pointer;
       padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
       border: none;
+      transition: background-color 0.3s;
     }
     input[type="text"], input[type="number"] {
       width: 60px;
       text-align: center;
       border: none;
-      border-bottom: 1px solid black;
+      border-bottom: 1px solid var(--input-border);
       outline: none;
       font-size: 16px;
+      background-color: transparent;
+      color: var(--text-color);
     }
     .header-label {
       display: flex;
@@ -146,6 +176,9 @@
         SALVAR
       </button>
       <button id="copyBtn">COPIAR</button>
+      <button id="darkModeBtn" title="Alternar modo escuro">
+        🌙 Modo Escuro
+      </button>
     </div>
     <div id="totalQtd">Total Qtd: 0</div>
   </div>
@@ -186,6 +219,24 @@
 
     const tableBody = document.getElementById('tableBody');
     const totalQtdDiv = document.getElementById('totalQtd');
+    const darkModeBtn = document.getElementById('darkModeBtn');
+
+    // Função para alternar modo escuro
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', isDark);
+      darkModeBtn.textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Escuro';
+    }
+
+    // Carregar preferência do localStorage
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+      darkModeBtn.textContent = '☀️ Modo Claro';
+    }
+
+    // Evento do botão modo escuro
+    darkModeBtn.onclick = toggleDarkMode;
 
     function updateTotalQtd() {
       const total = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
@@ -305,38 +356,37 @@
 
     // Copiar e compartilhar
     document.getElementById('copyBtn').onclick = async () => {
-  if (data.length === 0) {
-    alert('Não há dados para copiar.');
-    return;
-  }
-  // Calcula total
-  const totalQtd = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
+      if (data.length === 0) {
+        alert('Não há dados para copiar.');
+        return;
+      }
+      // Calcula total
+      const totalQtd = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
 
-  // Formata texto com tabulações, sem cabeçalho, acrescentando total no final
-  let text = '';
-  data.forEach(item => {
-    text += `${item.sku || '-'}\t${item.qtd}\t${item.lastro}\t${item.altura}\n`;
-  });
-  text += `Total Qtd:\t${totalQtd}`;
+      // Formata texto com tabulações, sem cabeçalho, acrescentando total no final
+      let text = '';
+      data.forEach(item => {
+        text += `${item.sku || '-'}\t${item.qtd}\t${item.lastro}\t${item.altura}\n`;
+      });
+      text += `Total Qtd:\t${totalQtd}`;
 
-  try {
-    await navigator.clipboard.writeText(text);
-    alert('Dados copiados para a área de transferência.');
+      try {
+        await navigator.clipboard.writeText(text);
+        alert('Dados copiados para a área de transferência.');
 
-    if (navigator.share) {
-      navigator.share({
-        title: 'Dados do Contador',
-        text,
-      })
-      .then(() => console.log('Compartilhamento realizado com sucesso.'))
-      .catch(err => console.warn('Erro no compartilhamento: ', err));
-    }
+        if (navigator.share) {
+          navigator.share({
+            title: 'Dados do Contador',
+            text,
+          })
+          .then(() => console.log('Compartilhamento realizado com sucesso.'))
+          .catch(err => console.warn('Erro no compartilhamento: ', err));
+        }
 
-  } catch (err) {
-    alert('Erro ao copiar os dados: ' + err);
-  }
-};
-
+      } catch (err) {
+        alert('Erro ao copiar os dados: ' + err);
+      }
+    };
 
     renderTable();
   </script>
