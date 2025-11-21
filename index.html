@@ -50,6 +50,15 @@
     }
 
   </style>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4caf50">
+
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js");
+  }
+</script>
+
 </head>
 <body>
 
