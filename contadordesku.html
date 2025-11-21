@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contador</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #000000;
+      --border-color: #ddd;
+      --button-bg: #ccc;
+      --input-border: #000000;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --text-color: #ffffff;
+      --border-color: #333;
+      --button-bg: #555;
+      --input-border: #ffffff;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    /* Container horizontal para título + imagem */
+    .title-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .buttons {
+      margin-bottom: 15px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .button-group {
+      display: flex;
+      gap: 5px; /* Gap menor para caber mais */
+      align-items: center;
+      flex-wrap: wrap; /* Quebra linha se necessário */
+    }
+    button {
+      padding: 8px 15px;
+      background-color: var(--button-bg);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background-color 0.3s;
+      font-size: 14px;
+      min-width: auto; /* Permite encolher */
+    }
+    button:hover {
+      background-color: #999;
+    }
+    body.dark-mode button:hover {
+      background-color: #777;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      overflow-x: auto; /* Rola horizontal em telas pequenas */
+      display: block;
+    }
+    th, td {
+      text-align: center;
+      padding: 8px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      white-space: nowrap; /* Evita quebra de texto */
+    }
+    .qty-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      align-items: center;
+    }
+    .qty-buttons button {
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-weight: normal;
+      background-color: var(--button-bg);
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: none;
+      transition: background-color 0.3s;
+    }
+    input[type="text"], input[type="number"] {
+      width: 60px;
+      text-align: center;
+      border: none;
+      border-bottom: 1px solid var(--input-border);
+      outline: none;
+      font-size: 16px;
+      background-color: transparent;
+      color: var(--text-color);
+    }
+    .header-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-weight: normal;
+    }
+    .header-label img {
+      width: 20px;
+      height: 20px;
+      user-select: none;
+    }
+    button img {
+      width: 18px;
+      height: 18px;
+      user-select: none;
+      pointer-events: none;
+    }
+    .title-icon {
+      width: 30px;
+      height: 30px;
+      user-select: none;
+    }
+    /* Estilo do campo total qtd */
+    #totalQtd {
+      font-weight: bold;
+      font-size: 16px;
+      user-select: none;
+      min-width: 140px;
+      text-align: right;
+    }
+
+    /* Media queries para responsividade */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      .title-container {
+        gap: 5px;
+        margin-bottom: 10px;
+      }
+      h2 {
+        font-size: 20px;
+      }
+      .buttons {
+        gap: 8px;
+      }
+      .button-group {
+        gap: 4px; /* Gap ainda menor */
+      }
+      button {
+        padding: 6px 10px; /* Padding menor */
+        font-size: 12px;
+      }
+      .qty-buttons button {
+        width: 25px;
+        height: 25px;
+      }
+      input[type="text"], input[type="number"] {
+        width: 50px;
+        font-size: 14px;
+      }
+      .header-label img {
+        width: 16px;
+        height: 16px;
+      }
+      button img {
+        width: 14px;
+        height: 14px;
+      }
+      .title-icon {
+        width: 25px;
+        height: 25px;
+      }
+      #totalQtd {
+        font-size: 14px;
+        text-align: center;
+        min-width: auto;
+        order: 1; /* Move para baixo em mobile */
+      }
+      .button-group {
+        order: 0; /* Botões ficam em cima */
+      }
+      th, td {
+        padding: 6px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .button-group {
+        gap: 3px;
+      }
+      button {
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+      .qty-buttons button {
+        width: 20px;
+        height: 20px;
+      }
+      input[type="text"], input[type="number"] {
+        width: 40px;
+        font-size: 12px;
+      }
+      .header-label {
+        gap: 4px;
+      }
+      .header-label img {
+        width: 14px;
+        height: 14px;
+      }
+      button img {
+        width: 12px;
+        height: 12px;
+      }
+      .title-icon {
+        width: 20px;
+        height: 20px;
+      }
+      h2 {
+        font-size: 18px;
+      }
+      #totalQtd {
+        font-size: 12px;
+      }
+    }
+  </style>
+  <link rel="manifest" href="manifest.json">
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("Service Worker registrado."))
+        .catch(err => console.log("Erro no Service Worker:", err));
+    }
+  </script>
+  
+</head>
+<body>
+
+  <!-- Container do título com a imagem panic -->
+  <div class="title-container">
+    <img src="icons/panic.png" alt="Panic Icon" class="title-icon" />
+    <h2>Contador</h2>
+  </div>
+
+  <div class="buttons">
+    <div class="button-group">
+      <button id="clearBtn">
+        <img src="icons/clean.png" alt="Limpar" />
+        LIMPAR
+      </button>
+      <button id="addBtn" title="Adicionar linha">
+        <img src="icons/add.png" alt="Adicionar" />
+      </button>
+      <button id="saveBtn">
+        <img src="icons/save.png" alt="Salvar" />
+        SALVAR
+      </button>
+      <button id="copyBtn">COPIAR</button>
+      <button id="darkModeBtn" title="Alternar modo escuro">
+        🌙 Modo Escuro
+      </button>
+    </div>
+    <div id="totalQtd">Total Qtd: 0</div>
+  </div>
+
+  <table id="counterTable">
+    <thead>
+      <tr>
+        <th>
+          <div class="header-label">
+            <img src="icons/toalet_paper.png" alt="SKU" />
+            <span>Sku</span>
+          </div>
+        </th>
+        <th>Qtd</th>
+        <th>
+          <div class="header-label">
+            <img src="icons/largura.png" alt="Lastro" />
+            <span>Lastro</span>
+          </div>
+        </th>
+        <th>
+          <div class="header-label">
+            <img src="icons/altura.png" alt="Altura" />
+            <span>Altura</span>
+          </div>
+        </th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <!-- Linhas geradas por JS -->
+    </tbody>
+  </table>
+
+  <script>
+    let data = [
+      { sku: '', qtd: '', lastro: '', altura: '' }
+    ];
+
+    const tableBody = document.getElementById('tableBody');
+    const totalQtdDiv = document.getElementById('totalQtd');
+    const darkModeBtn = document.getElementById('darkModeBtn');
+
+    // Função para alternar modo escuro
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', isDark);
+      darkModeBtn.textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Escuro';
+    }
+
+    // Carregar preferência do localStorage
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+      darkModeBtn.textContent = '☀️ Modo Claro';
+    }
+
+    // Evento do botão modo escuro
+    darkModeBtn.onclick = toggleDarkMode;
+
+    function updateTotalQtd() {
+      const total = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
+      totalQtdDiv.textContent = `Total Qtd: ${total}`;
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = '';
+      data.forEach((item, index) => {
+        const row = document.createElement('tr');
+
+        // SKU input
+        const skuTd = document.createElement('td');
+        const skuInput = document.createElement('input');
+        skuInput.type = 'text';
+        skuInput.value = item.sku;
+        skuInput.oninput = e => {
+          data[index].sku = e.target.value;
+        };
+        skuTd.appendChild(skuInput);
+        row.appendChild(skuTd);
+
+        // Qtd com botões
+        const qtdTd = document.createElement('td');
+        const qtyDiv = document.createElement('div');
+        qtyDiv.className = 'qty-buttons';
+
+        const btnMinus = document.createElement('button');
+        btnMinus.title = 'Diminuir quantidade';
+        btnMinus.type = 'button';
+        btnMinus.innerHTML = `<img src="icons/subtract.png" alt="-" />`;
+        btnMinus.onclick = () => {
+          if (data[index].qtd > 0) {
+            data[index].qtd--;
+            renderTable();
+          }
+        };
+
+        const qtdValue = document.createElement('input');
+        qtdValue.type = 'number';
+        qtdValue.value = item.qtd;
+        qtdValue.min = 0;
+        qtdValue.oninput = e => {
+          const val = Number(e.target.value);
+          if (val >= 0) {
+            data[index].qtd = val;
+          }
+          renderTable();
+        };
+
+        const btnPlus = document.createElement('button');
+        btnPlus.title = 'Aumentar quantidade';
+        btnPlus.type = 'button';
+        btnPlus.innerHTML = `<img src="icons/add.png" alt="+" />`;
+        btnPlus.onclick = () => {
+          data[index].qtd++;
+          renderTable();
+        };
+
+        qtyDiv.appendChild(btnMinus);
+        qtyDiv.appendChild(qtdValue);
+        qtyDiv.appendChild(btnPlus);
+        qtdTd.appendChild(qtyDiv);
+        row.appendChild(qtdTd);
+
+        // Lastro input number editável
+        const lastroTd = document.createElement('td');
+        const lastroInput = document.createElement('input');
+        lastroInput.type = 'number';
+        lastroInput.min = 0;
+        lastroInput.value = item.lastro;
+        lastroInput.oninput = e => {
+          const val = Number(e.target.value);
+          if (val >= 0) {
+            data[index].lastro = val;
+          }
+        };
+        lastroTd.appendChild(lastroInput);
+        row.appendChild(lastroTd);
+
+        // Altura input number editável
+        const alturaTd = document.createElement('td');
+        const alturaInput = document.createElement('input');
+        alturaInput.type = 'number';
+        alturaInput.min = 0;
+        alturaInput.value = item.altura;
+        alturaInput.oninput = e => {
+          const val = Number(e.target.value);
+          if (val >= 0) {
+            data[index].altura = val;
+          }
+        };
+        alturaTd.appendChild(alturaInput);
+        row.appendChild(alturaTd);
+
+        tableBody.appendChild(row);
+      });
+      updateTotalQtd(); // Atualiza total após renderização
+    }
+
+    // Limpar tabela
+    document.getElementById('clearBtn').onclick = () => {
+      data = [];
+      renderTable();
+    };
+
+    // Adicionar nova linha
+    document.getElementById('addBtn').onclick = () => {
+      data.push({ sku: '', qtd: 0, lastro: 0, altura: 0 });
+      renderTable();
+    };
+
+    // Salvar (exemplo simples)
+    document.getElementById('saveBtn').onclick = () => {
+      alert('Salvando dados:\n' + JSON.stringify(data, null, 2));
+    };
+
+    // Copiar e compartilhar
+    document.getElementById('copyBtn').onclick = async () => {
+      if (data.length === 0) {
+        alert('Não há dados para copiar.');
+        return;
+      }
+      // Calcula total
+      const totalQtd = data.reduce((sum, item) => sum + Number(item.qtd || 0), 0);
+
+      // Formata texto com tabulações, sem cabeçalho, acrescentando total no final
+      let text = '';
+      data.forEach(item => {
+        text += `${item.sku || '-'}\t${item.qtd}\t${item.lastro}\t${item.altura}\n`;
+      });
+      text += `Total Qtd:\t${totalQtd}`;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        alert('Dados copiados para a área de transferência.');
+
+        if (navigator.share) {
+          navigator.share({
+            title: 'Dados do Contador',
+            text,
+          })
+          .then(() => console.log('Compartilhamento realizado com sucesso.'))
+          .catch(err => console.warn('Erro no compartilhamento: ', err));
+        }
+
+      } catch (err) {
+        alert('Erro ao copiar os dados: ' + err);
+      }
+    };
+
+    renderTable();
+  </script>
+
+    <button class="btn" onclick="location.href='Calculadoradefardos.html'">
+      Calculadora de Fardos
+    </button>
+
+    <button class="btn" onclick="location.href='index.html'">
+      pagina principal
+    </button>
+
+    <button class="btn" onclick="location.href='Geradordeqrcode.html'">
+      Gerador de QR Code
+    </button>
+</body>
+</html>
