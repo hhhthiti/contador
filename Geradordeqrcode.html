@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de QR Code</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #4caf50;
+      color: white;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #preview {
+      margin-top: 20px;
+      display: flex;
+      gap: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Gerador de QR Code + PDF</h2>
+
+  <label>Número do Agrupamento:</label>
+  <input id="agrupamento" type="text" placeholder="Ex: AGP12345">
+
+  <label>Número do Documento de Carga:</label>
+  <input id="documento" type="text" placeholder="Ex: DOC987654">
+
+  <button onclick="gerar()">Gerar PDF com QR Codes</button>
+
+  <div id="preview">
+    <div id="qr1"></div>
+    <div id="qr2"></div>
+  </div>
+
+  <script>
+    function gerar() {
+      const agr = document.getElementById("agrupamento").value.trim();
+      const doc = document.getElementById("documento").value.trim();
+
+      if (!agr || !doc) {
+        alert("Preencha os dois campos.");
+        return;
+      }
+
+      document.getElementById("qr1").innerHTML = "";
+      document.getElementById("qr2").innerHTML = "";
+
+      new QRCode(document.getElementById("qr1"), {
+        text: agr,
+        width: 200,
+        height: 200
+      });
+
+      new QRCode(document.getElementById("qr2"), {
+        text: doc,
+        width: 200,
+        height: 200
+      });
+
+      setTimeout(() => gerarPDF(), 300);
+    }
+
+    function gerarPDF(agr, doc) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("landscape"); // horizontal
+
+  // === QR FIXO (EMPRESA) ===
+  const fixedValue = "30648235";
+
+  // Gera QR Code fixo em um canvas temporário
+  const tempDiv = document.createElement("div");
+  const fixedQR = new QRCode(tempDiv, {
+    text: fixedValue,
+    width: 200,
+    height: 200
+  });
+
+  // Espera renderizar
+  setTimeout(() => {
+    const fixedCanvas = tempDiv.querySelector("canvas");
+    const fixedImg = fixedCanvas.toDataURL("image/png");
+
+    const canvas1 = document.querySelector("#qr1 canvas");
+    const canvas2 = document.querySelector("#qr2 canvas");
+
+    const img1 = canvas1.toDataURL("image/png");
+    const img2 = canvas2.toDataURL("image/png");
+
+    // ==== TÍTULOS ====
+    pdf.setFontSize(18);
+    pdf.text("EMPRESA", 35, 20);
+    pdf.text("AGRUPAMENTO", 135, 20);
+    pdf.text("DOC. CARGA", 235, 20);
+
+    // ==== QR CODES ====
+    pdf.addImage(fixedImg, "PNG", 10, 30, 80, 80);
+    pdf.addImage(img1, "PNG", 110, 30, 80, 80);
+    pdf.addImage(img2, "PNG", 210, 30, 80, 80);
+
+    pdf.save("qr_codes.pdf");
+  }, 300);
+}
+
+  </script>
+
+  <button onclick="location.href='Calculadoradefardos.html'">Calculadora de Fardos</button>
+  <button onclick="location.href='contadordesku.html'">Contador de SKU</button>
+  <button onclick="location.href='index.html'">Página Principal</button>
+
+</body>
+</html>
