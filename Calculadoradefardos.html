@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora de Fardos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h2 {
+      margin-bottom: 15px;
+    }
+    .input-group {
+      margin-bottom: 15px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      font-size: 18px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      margin-top: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #3e8e41;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f3f3f3;
+      border-radius: 6px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Calculadora de PL2 / PBR / Sobras</h2>
+
+  <div class="input-group">
+    <label>Fardos por PL2:</label>
+    <input id="pl2" type="number" min="1" placeholder="Ex: 36">
+  </div>
+
+  <div class="input-group">
+    <label>Fardos por PBR:</label>
+    <input id="pbr" type="number" min="1" placeholder="Ex: 30">
+  </div>
+
+  <div class="input-group">
+    <label>Total do Pedido (fardos):</label>
+    <input id="pedido" type="number" min="1" placeholder="Ex: 850">
+  </div>
+
+  <button onclick="calcular()">CALCULAR</button>
+
+  <div id="resultado" class="result" style="display:none;"></div>
+
+  <script>
+    function calcular() {
+      const pl2 = Number(document.getElementById("pl2").value);
+      const pbr = Number(document.getElementById("pbr").value);
+      const pedido = Number(document.getElementById("pedido").value);
+
+      if (!pl2 || !pbr || !pedido) {
+        alert("Preencha todos os campos corretamente!");
+        return;
+      }
+
+      // cálculos
+      const pl2_total = pedido / pl2;
+      const pl2_inteiros = Math.floor(pl2_total);
+
+      const pbr_total = pedido / pbr;
+      const pbr_inteiros = Math.floor(pbr_total);
+
+      const parte_decimal = pbr_total - pbr_inteiros;
+      const sobra = Math.round(parte_decimal * pbr);
+
+      // mostra resultados
+      document.getElementById("resultado").style.display = "block";
+      document.getElementById("resultado").innerHTML = `
+        <strong>Resultado:</strong><br><br>
+        PL2 necessários: <strong>${pl2_inteiros}</strong><br>
+        PBR necessários: <strong>${pbr_inteiros}</strong><br>
+        Sobra: <strong>${sobra} fardos</strong>
+      `;
+    }
+  </script>
+
+    <button class="btn" onclick="location.href='index.html'">
+      pagina principal
+    </button>
+
+    <button class="btn" onclick="location.href='contadordesku.html'">
+      Contador de SKU
+    </button>
+
+    <button class="btn" onclick="location.href='Geradordeqrcode.html'">
+      Gerador de QR Code
+    </button>
+</body>
+</html>
