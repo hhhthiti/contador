@@ -118,43 +118,47 @@ function gerarPDF() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("landscape");
 
-  // QR Code fixo empresa
-  const fixedValue = "30648235";
-  const tempDiv = document.createElement("div");
-  const fixedQR = new QRCode(tempDiv, {
-    text: fixedValue,
-    width: 200,
-    height: 200
-  });
+  // Função para converter imagem em base64
+  function getBase64Image(imgUrl, callback) {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = function() {
+      const canvas = document.createElement("canvas");
+      canvas.width = this.width;
+      canvas.height = this.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(this, 0, 0);
+      const dataURL = canvas.toDataURL("image/png");
+      callback(dataURL);
+    };
+    img.src = imgUrl;
+  }
 
-  setTimeout(() => {
-    const fixedCanvas = tempDiv.querySelector("canvas");
-    const fixedImg = fixedCanvas.toDataURL("image/png");
-
+  getBase64Image('icons/JSL.png', function(base64Img) {
     const canvas1 = document.querySelector("#qr1 canvas");
     const canvas2 = document.querySelector("#qr2 canvas");
 
     const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
     const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
-    // Aumenta o tamanho de todos os textos
-    pdf.setFontSize(24); // Aumenta o tamanho das legendas
+    pdf.setFontSize(24);
     pdf.text("EMPRESA", 35, 20);
     pdf.text("AGRUPAMENTO", 135, 20);
     pdf.text("DOC. CARGA", 235, 20);
 
-    pdf.addImage(fixedImg, "PNG", 10, 30, 80, 80);
+    // Adiciona a imagem da pasta icons
+    pdf.addImage(base64Img, "PNG", 10, 30, 80, 80);
     if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
     if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
 
-    // Aumenta o tamanho do texto centralizado
     const texto = document.getElementById("campoTexto").value || "Texto padrão";
-    pdf.setFontSize(20); // Aumenta o tamanho do texto centralizado
+    pdf.setFontSize(45);
     pdf.text(texto, 140, 130, { align: "center" });
 
     pdf.save("qr_codes.pdf");
-  }, 300);
+  });
 }
+
 
   </script>
 
