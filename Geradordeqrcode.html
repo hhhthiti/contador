@@ -144,6 +144,14 @@ function gerar() {
 function gerarPDF() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("landscape");
+  // QR Code fixo empresa
+const fixedValue = "30648235";
+const tempDiv = document.createElement("div");
+const fixedQR = new QRCode(tempDiv, {
+text: fixedValue,
+width: 200,
+height: 200
+});
 
   function getBase64Image(imgUrl, callback) {
     const img = new Image();
