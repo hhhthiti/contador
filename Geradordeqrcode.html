@@ -149,49 +149,71 @@ function gerarPDF() {
   const fixedValue = "30648235";
   const tempDiv = document.createElement("div");
 
+  // Cria o QR Code fixo
   new QRCode(tempDiv, {
     text: fixedValue,
     width: 200,
     height: 200
   });
 
-  // esperar QR gerar
+  // Espera QR gerar
   setTimeout(() => {
 
-    // pega o canvas do QR fixo
     const fixedCanvas = tempDiv.querySelector("canvas");
-    const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
+    const ctx = fixedCanvas.getContext("2d");
 
-    // pega qrs de agrupamento e documento
-    const canvas1 = document.querySelector("#qr1 canvas");
-    const canvas2 = document.querySelector("#qr2 canvas");
+    const logo = new Image();
+    logo.src = "icons/JSL.png";
 
-    const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
-    const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
+    logo.onload = () => {
+      // Mesmo tamanho usado nos outros QR Codes
+      const logoSize = fixedCanvas.width * 0.22;
+      const x = (fixedCanvas.width - logoSize) / 2;
+      const y = (fixedCanvas.height - logoSize) / 2;
 
-    // texto
-    pdf.setFontSize(24);
-    pdf.text("EMPRESA", 35, 20);
-    pdf.text("AGRUPAMENTO", 135, 20);
-    pdf.text("DOC. CARGA", 235, 20);
+      // fundo branco atrás da logo
+      // ctx.fillStyle = "white";
+      //ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
 
-    // ---- ADICIONA o QR FIXO (agora sim!!) ----
-    pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
+      // desenha logo
+      ctx.drawImage(logo, x, y, logoSize, logoSize);
 
-    // agrupamento
-    if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
+      // agora sim converte o QR com logo para imagem
+      const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
 
-    // doc carga
-    if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
+      // pega QR de agrupamento e de documento
+      const canvas1 = document.querySelector("#qr1 canvas");
+      const canvas2 = document.querySelector("#qr2 canvas");
 
-    // texto do rodapé
-    const texto = document.getElementById("campoTexto").value || "Texto padrão";
-    pdf.setFontSize(45);
-    pdf.text(texto, 140, 130, { align: "center" });
+      const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
+      const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
-    pdf.save("qr_codes.pdf");
+      // texto
+      pdf.setFontSize(24);
+      pdf.text("EMPRESA", 35, 20);
+      pdf.text("AGRUPAMENTO", 135, 20);
+      pdf.text("DOC. CARGA", 235, 20);
+
+      // QR FIXO COM LOGO
+      pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
+
+      // agrupamento
+      if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
+
+      // doc carga
+      if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
+
+      // texto do rodapé
+      const texto = document.getElementById("campoTexto").value || "Texto padrão";
+      pdf.setFontSize(45);
+      pdf.text(texto, 140, 130, { align: "center" });
+
+      pdf.save("qr_codes.pdf");
+    };
+
   }, 300);
 }
+
 
   </script>
 
