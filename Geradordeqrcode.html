@@ -137,7 +137,8 @@ function gerarPDF() {
     const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
     const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
-    pdf.setFontSize(18);
+    // Aumenta o tamanho de todos os textos
+    pdf.setFontSize(24); // Aumenta o tamanho das legendas
     pdf.text("EMPRESA", 35, 20);
     pdf.text("AGRUPAMENTO", 135, 20);
     pdf.text("DOC. CARGA", 235, 20);
@@ -146,10 +147,10 @@ function gerarPDF() {
     if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
     if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
 
-    // Adiciona texto centralizado abaixo dos QR codes
+    // Aumenta o tamanho do texto centralizado
     const texto = document.getElementById("campoTexto").value || "Texto padrão";
-    pdf.setFontSize(14);
-    pdf.text(texto, 140, 130, { align: "center" }); // Centraliza o texto
+    pdf.setFontSize(20); // Aumenta o tamanho do texto centralizado
+    pdf.text(texto, 140, 130, { align: "center" });
 
     pdf.save("qr_codes.pdf");
   }, 300);
