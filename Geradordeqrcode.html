@@ -172,8 +172,8 @@ function gerarPDF() {
       const y = (fixedCanvas.height - logoSize) / 2;
 
       // fundo branco atrás da logo
-      // ctx.fillStyle = "white";
-      //ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
+       ctx.fillStyle = "white";
+      ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
 
       // desenha logo
       ctx.drawImage(logo, x, y, logoSize, logoSize);
