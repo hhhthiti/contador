@@ -76,9 +76,9 @@
     function calcular() {
       const pl2 = Number(document.getElementById("pl2").value);
       const pbr = Number(document.getElementById("pbr").value);
-    //  const pedido = Number(document.getElementById("pedido").value);
+      const pedido = Number(document.getElementById("pedido").value);
 
-      if (!pl2 || !pbr ) {
+      if (!pl2 || !pbr || !pedido) {
         alert("Preencha todos os campos corretamente!");
         return;
       }
@@ -92,10 +92,6 @@
 
       const parte_decimal = pbr_total - pbr_inteiros;
       const sobra = Math.round(parte_decimal * pbr);
-      
-const mensagem = `PL2 necessários: ${pl2_inteiros}. PBR necessários: ${pbr_inteiros}. Sobra: ${sobra} fardos.`;
-const fala = new SpeechSynthesisUtterance(mensagem);
-window.speechSynthesis.speak(fala);
 
       // mostra resultados
       document.getElementById("resultado").style.display = "block";
