@@ -48,13 +48,12 @@
 
   <label>Número do Documento de Carga:</label>
   <input id="documento" type="text" placeholder="Ex: DOC987654">
-  
-<div style="margin-top: 20px; text-align: center;">
-  <input type="text" id="campoTexto" placeholder="Digite o texto para o PDF" style="width: 80%; max-width: 400px; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;">
-</div>
 
+  <div style="margin-top: 20px; text-align: center;">
+    <input type="text" id="campoTexto" placeholder="Digite o texto para o PDF" 
+           style="width: 80%; max-width: 400px; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;">
+  </div>
 
-  
   <button onclick="gerar()">Gerar PDF com QR Codes</button>
 
   <div id="preview">
@@ -63,23 +62,30 @@
   </div>
 
   <script>
-
-function addImageToQRCode(canvasId, imagePath) {
-  const canvas = document.querySelector(`#${canvasId} canvas`);
+    
+// -----------------------------
+// Função que adiciona imagem no centro do QR Code
+// -----------------------------
+function addImageToQRCode(id, imgPath) {
+  const canvas = document.querySelector(`#${id} canvas`);
   if (!canvas) return;
 
   const ctx = canvas.getContext("2d");
   const img = new Image();
-  img.src = imagePath; // caminho relativo da imagem na pasta icons
+  img.src = imgPath;
+
   img.onload = () => {
-    const x = (canvas.width - 40) / 2; // centraliza com tamanho 40x40
-    const y = (canvas.height - 40) / 2;
-    ctx.drawImage(img, x, y, 40, 40);
+    const size = 40; // tamanho do logo
+    const x = (canvas.width - size) / 2;
+    const y = (canvas.height - size) / 2;
+    ctx.drawImage(img, x, y, size, size);
   };
 }
-addImageToQRCode("qr1", "icons/JSL.png");
-addImageToQRCode("qr2", "icons/JSL.png");
 
+
+// -----------------------------
+// GERAR QR CODES
+// -----------------------------
 function gerar() {
   const agr = document.getElementById("agrupamento").value.trim();
   const doc = document.getElementById("documento").value.trim();
@@ -92,37 +98,50 @@ function gerar() {
   document.getElementById("qr1").innerHTML = "";
   document.getElementById("qr2").innerHTML = "";
 
+  // QR 1
   if (agr) {
     new QRCode(document.getElementById("qr1"), {
       text: agr,
       width: 200,
       height: 200
     });
+
+    setTimeout(() => {
+      addImageToQRCode("qr1", "icons/JSL.png");
+    }, 300);
+
   } else {
     document.getElementById("qr1").innerHTML = "<p>Agrupamento não informado</p>";
   }
 
+  // QR 2
   new QRCode(document.getElementById("qr2"), {
     text: doc,
     width: 200,
     height: 200
   });
 
-  // Aguarda 800ms para garantir QR Codes prontos, depois gera PDF
+  setTimeout(() => {
+    addImageToQRCode("qr2", "icons/JSL.png");
+  }, 300);
+
   setTimeout(() => {
     gerarPDF();
   }, 800);
 }
 
+
+// -----------------------------
+// GERAR PDF
+// -----------------------------
 function gerarPDF() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("landscape");
 
-  // Função para converter imagem em base64
   function getBase64Image(imgUrl, callback) {
     const img = new Image();
     img.crossOrigin = "Anonymous";
-    img.onload = function() {
+    img.onload = function () {
       const canvas = document.createElement("canvas");
       canvas.width = this.width;
       canvas.height = this.height;
@@ -134,7 +153,7 @@ function gerarPDF() {
     img.src = imgUrl;
   }
 
-  getBase64Image('icons/JSL.png', function(base64Img) {
+  getBase64Image("icons/JSL.png", function (base64Img) {
     const canvas1 = document.querySelector("#qr1 canvas");
     const canvas2 = document.querySelector("#qr2 canvas");
 
@@ -146,19 +165,18 @@ function gerarPDF() {
     pdf.text("AGRUPAMENTO", 135, 20);
     pdf.text("DOC. CARGA", 235, 20);
 
-    // Adiciona a imagem da pasta icons
     pdf.addImage(base64Img, "PNG", 10, 30, 80, 80);
     if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
     if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
 
     const texto = document.getElementById("campoTexto").value || "Texto padrão";
+
     pdf.setFontSize(45);
     pdf.text(texto, 140, 130, { align: "center" });
 
     pdf.save("qr_codes.pdf");
   });
 }
-
 
   </script>
 
