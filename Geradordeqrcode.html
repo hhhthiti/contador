@@ -48,6 +48,10 @@
 
   <label>Número do Documento de Carga:</label>
   <input id="documento" type="text" placeholder="Ex: DOC987654">
+  
+<div style="margin-top: 20px; text-align: center;">
+  <input type="text" id="campoTexto" placeholder="Digite o texto para o PDF" style="width: 80%; max-width: 400px; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;">
+</div>
 
   <button onclick="gerar()">Gerar PDF com QR Codes</button>
 
@@ -128,7 +132,6 @@ function gerarPDF() {
     const canvas1 = document.querySelector("#qr1 canvas");
     const canvas2 = document.querySelector("#qr2 canvas");
 
-    // Se não existir qr1 canvas, crie substituto vazio para evitar erro
     const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
     const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
@@ -140,6 +143,11 @@ function gerarPDF() {
     pdf.addImage(fixedImg, "PNG", 10, 30, 80, 80);
     if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
     if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
+
+    // Adiciona texto centralizado abaixo dos QR codes
+    const texto = document.getElementById("campoTexto").value || "Texto padrão";
+    pdf.setFontSize(14);
+    pdf.text(texto, 140, 130, { align: "center" }); // Centraliza o texto
 
     pdf.save("qr_codes.pdf");
   }, 300);
