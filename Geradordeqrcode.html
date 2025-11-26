@@ -57,32 +57,50 @@
   </div>
 
   <script>
-    function gerar() {
-      const agr = document.getElementById("agrupamento").value.trim();
-      const doc = document.getElementById("documento").value.trim();
+  function gerar() {
+  const agr = document.getElementById("agrupamento").value.trim();
+  const doc = document.getElementById("documento").value.trim();
 
-      if (!agr || !doc) {
-        alert("Preencha os dois campos.");
-        return;
-      }
+  if (!doc) {
+    alert("Preencha o campo Documento de Carga.");
+    return;
+  }
 
-      document.getElementById("qr1").innerHTML = "";
-      document.getElementById("qr2").innerHTML = "";
+  document.getElementById("qr1").innerHTML = "";
+  document.getElementById("qr2").innerHTML = "";
 
-      new QRCode(document.getElementById("qr1"), {
-        text: agr,
-        width: 200,
-        height: 200
-      });
+  if (agr) {
+    new QRCode(document.getElementById("qr1"), {
+      text: agr,
+      width: 200,
+      height: 200
+    });
+  } else {
+    document.getElementById("qr1").innerHTML = "<p>Agrupamento não informado</p>";
+  }
 
-      new QRCode(document.getElementById("qr2"), {
-        text: doc,
-        width: 200,
-        height: 200
-      });
+  new QRCode(document.getElementById("qr2"), {
+    text: doc,
+    width: 200,
+    height: 200
+  });
 
-      setTimeout(() => gerarPDF(), 300);
-    }
+  setTimeout(() => gerarPDF(), 500);
+}
+function addLogoToQRCode(qrElementId, logoURL) {
+  const canvas = document.querySelector(`#${qrElementId} canvas`);
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.src = logoURL;
+  img.onload = () => {
+    const x = (canvas.width / 2) - (img.width / 2);
+    const y = (canvas.height / 2) - (img.height / 2);
+    ctx.drawImage(img, x, y, 40, 40); // ajustar tamanho logo conforme necessário
+  };
+}
+
 
     function gerarPDF(agr, doc) {
   const { jsPDF } = window.jspdf;
