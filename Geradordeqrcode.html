@@ -57,41 +57,63 @@
   </div>
 
   <script>
-    function gerar() {
-      const agr = document.getElementById("agrupamento").value.trim();
-      const doc = document.getElementById("documento").value.trim();
 
-      if (!agr || !doc) {
-        alert("Preencha os dois campos.");
-        return;
-      }
+function addImageToQRCode(canvasId, imagePath) {
+  const canvas = document.querySelector(`#${canvasId} canvas`);
+  if (!canvas) return;
 
-      document.getElementById("qr1").innerHTML = "";
-      document.getElementById("qr2").innerHTML = "";
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.src = imagePath; // caminho relativo da imagem na pasta icons
+  img.onload = () => {
+    const x = (canvas.width - 40) / 2; // centraliza com tamanho 40x40
+    const y = (canvas.height - 40) / 2;
+    ctx.drawImage(img, x, y, 40, 40);
+  };
+}
+addImageToQRCode("qr1", "icons/minha_foto.png");
+addImageToQRCode("qr2", "icons/minha_foto.png");
 
-      new QRCode(document.getElementById("qr1"), {
-        text: agr,
-        width: 200,
-        height: 200
-      });
+function gerar() {
+  const agr = document.getElementById("agrupamento").value.trim();
+  const doc = document.getElementById("documento").value.trim();
 
-      new QRCode(document.getElementById("qr2"), {
-        text: doc,
-        width: 200,
-        height: 200
-      });
+  if (!doc) {
+    alert("Preencha o campo Documento de Carga.");
+    return;
+  }
 
-      setTimeout(() => gerarPDF(), 300);
-    }
+  document.getElementById("qr1").innerHTML = "";
+  document.getElementById("qr2").innerHTML = "";
 
-    function gerarPDF(agr, doc) {
+  if (agr) {
+    new QRCode(document.getElementById("qr1"), {
+      text: agr,
+      width: 200,
+      height: 200
+    });
+  } else {
+    document.getElementById("qr1").innerHTML = "<p>Agrupamento não informado</p>";
+  }
+
+  new QRCode(document.getElementById("qr2"), {
+    text: doc,
+    width: 200,
+    height: 200
+  });
+
+  // Aguarda 800ms para garantir QR Codes prontos, depois gera PDF
+  setTimeout(() => {
+    gerarPDF();
+  }, 800);
+}
+
+function gerarPDF() {
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF("landscape"); // horizontal
+  const pdf = new jsPDF("landscape");
 
-  // === QR FIXO (EMPRESA) ===
+  // QR Code fixo empresa
   const fixedValue = "30648235";
-
-  // Gera QR Code fixo em um canvas temporário
   const tempDiv = document.createElement("div");
   const fixedQR = new QRCode(tempDiv, {
     text: fixedValue,
@@ -99,7 +121,6 @@
     height: 200
   });
 
-  // Espera renderizar
   setTimeout(() => {
     const fixedCanvas = tempDiv.querySelector("canvas");
     const fixedImg = fixedCanvas.toDataURL("image/png");
@@ -107,19 +128,18 @@
     const canvas1 = document.querySelector("#qr1 canvas");
     const canvas2 = document.querySelector("#qr2 canvas");
 
-    const img1 = canvas1.toDataURL("image/png");
-    const img2 = canvas2.toDataURL("image/png");
+    // Se não existir qr1 canvas, crie substituto vazio para evitar erro
+    const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
+    const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
-    // ==== TÍTULOS ====
     pdf.setFontSize(18);
     pdf.text("EMPRESA", 35, 20);
     pdf.text("AGRUPAMENTO", 135, 20);
     pdf.text("DOC. CARGA", 235, 20);
 
-    // ==== QR CODES ====
     pdf.addImage(fixedImg, "PNG", 10, 30, 80, 80);
-    pdf.addImage(img1, "PNG", 110, 30, 80, 80);
-    pdf.addImage(img2, "PNG", 210, 30, 80, 80);
+    if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
+    if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
 
     pdf.save("qr_codes.pdf");
   }, 300);
