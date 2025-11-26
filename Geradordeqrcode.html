@@ -144,53 +144,53 @@ function gerar() {
 function gerarPDF() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("landscape");
-  // QR Code fixo empresa
-const fixedValue = "30648235";
-const tempDiv = document.createElement("div");
-const fixedQR = new QRCode(tempDiv, {
-text: fixedValue,
-width: 200,
-height: 200
-});
 
-  function getBase64Image(imgUrl, callback) {
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = function () {
-      const canvas = document.createElement("canvas");
-      canvas.width = this.width;
-      canvas.height = this.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(this, 0, 0);
-      const dataURL = canvas.toDataURL("image/png");
-      callback(dataURL);
-    };
-    img.src = imgUrl;
-  }
+  // ---- QR CODE FIXO EMPRESA ----
+  const fixedValue = "30648235";
+  const tempDiv = document.createElement("div");
 
-  getBase64Image("icons/JSL.png", function (base64Img) {
+  new QRCode(tempDiv, {
+    text: fixedValue,
+    width: 200,
+    height: 200
+  });
+
+  // esperar QR gerar
+  setTimeout(() => {
+
+    // pega o canvas do QR fixo
+    const fixedCanvas = tempDiv.querySelector("canvas");
+    const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
+
+    // pega qrs de agrupamento e documento
     const canvas1 = document.querySelector("#qr1 canvas");
     const canvas2 = document.querySelector("#qr2 canvas");
 
     const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
     const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
+    // texto
     pdf.setFontSize(24);
     pdf.text("EMPRESA", 35, 20);
     pdf.text("AGRUPAMENTO", 135, 20);
     pdf.text("DOC. CARGA", 235, 20);
 
-    pdf.addImage(base64Img, "PNG", 10, 30, 80, 80);
+    // ---- ADICIONA o QR FIXO (agora sim!!) ----
+    pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
+
+    // agrupamento
     if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
+
+    // doc carga
     if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
 
+    // texto do rodapé
     const texto = document.getElementById("campoTexto").value || "Texto padrão";
-
     pdf.setFontSize(45);
     pdf.text(texto, 140, 130, { align: "center" });
 
     pdf.save("qr_codes.pdf");
-  });
+  }, 300);
 }
 
   </script>
