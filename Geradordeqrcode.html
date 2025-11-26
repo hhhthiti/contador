@@ -190,9 +190,9 @@ function gerarPDF() {
 
       // texto
       pdf.setFontSize(24);
-      pdf.text("EMPRESA", 35, 20);
-      pdf.text("AGRUPAMENTO", 135, 20);
-      pdf.text("DOC. CARGA", 235, 20);
+      pdf.text("EMPRESA", 35, 30);
+      pdf.text("AGRUPAMENTO", 135, 30);
+      pdf.text("DOC. CARGA", 235, 30);
 
       // QR FIXO COM LOGO
       pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
@@ -205,7 +205,7 @@ function gerarPDF() {
 
       // texto do rodapé
       const texto = document.getElementById("campoTexto").value || "Texto padrão";
-      pdf.setFontSize(45);
+      pdf.setFontSize(60);
       pdf.text(texto, 140, 130, { align: "center" });
 
       pdf.save("qr_codes.pdf");
