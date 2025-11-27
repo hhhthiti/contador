@@ -5,115 +5,155 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calculadora de Fardos</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    h2 {
-      margin-bottom: 15px;
-    }
-    .input-group {
-      margin-bottom: 15px;
-    }
-    label {
-      font-weight: bold;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { margin-bottom: 15px; }
+    .input-group { margin-bottom: 15px; }
+    label { font-weight: bold; }
+    input, select {
+      width: 100%; padding: 8px; margin-top: 5px;
+      font-size: 16px; border: 1px solid #ccc; border-radius: 4px;
     }
     button {
-      width: 100%;
-      padding: 10px;
-      font-size: 18px;
-      background-color: #4caf50;
-      color: white;
-      border: none;
-      margin-top: 10px;
-      border-radius: 4px;
-      cursor: pointer;
+      width: 100%; padding: 10px; margin-top: 10px;
+      font-size: 18px; background-color: #4caf50; color: white;
+      border: none; border-radius: 4px; cursor: pointer;
     }
-    button:hover {
-      background-color: #3e8e41;
-    }
+    button:hover { background-color: #3e8e41; }
     .result {
-      margin-top: 20px;
-      padding: 15px;
-      background: #f3f3f3;
-      border-radius: 6px;
-      font-size: 18px;
+      margin-top: 20px; padding: 15px; background: #f3f3f3;
+      border-radius: 6px; font-size: 18px;
+    }
+    textarea {
+      width: 100%; height: 200px; margin-top: 15px;
+      font-size: 14px; border-radius: 4px; padding: 10px;
     }
   </style>
 </head>
 <body>
 
-  <h2>Calculadora de PL2 / PBR / Sobras</h2>
+<h2>Calculadora de PL2 / PBR / Sobras</h2>
 
-  <div class="input-group">
-    <label>Fardos por PL2:</label>
-    <input id="pl2" type="number" min="1" placeholder="Ex: 36">
-  </div>
+<!-- FARDOS/PALLETES -->
+<div class="input-group">
+  <label>Escolha a quantidade para calcular:</label><br>
 
-  <div class="input-group">
-    <label>Fardos por PBR:</label>
-    <input id="pbr" type="number" min="1" placeholder="Ex: 30">
-  </div>
+  <input type="radio" id="usarFardos" name="tipoCalculo" value="fardos" checked>
+  <label for="usarFardos">Quantidade de Fardos</label>
 
-  <div class="input-group">
-    <label>Total do Pedido (fardos):</label>
-    <input id="pedido" type="number" min="1" placeholder="Ex: 850">
-  </div>
+  <input type="radio" id="usarPaletes" name="tipoCalculo" value="paletes">
+  <label for="usarPaletes">Quantidade de Paletes</label>
+</div>
 
-  <button onclick="calcular()">CALCULAR</button>
+<div class="input-group">
+  <label>Fardos por PL2:</label>
+  <input id="pl2" type="number" min="1" placeholder="Ex: 36">
+</div>
 
-  <div id="resultado" class="result" style="display:none;"></div>
+<div class="input-group">
+  <label>Fardos por PBR:</label>
+  <input id="pbr" type="number" min="1" placeholder="Ex: 30">
+</div>
 
-  <script>
-    function calcular() {
-      const pl2 = Number(document.getElementById("pl2").value);
-      const pbr = Number(document.getElementById("pbr").value);
-      const pedido = Number(document.getElementById("pedido").value);
+<!-- CAMPOS DE FARDOS -->
+<div class="input-group" id="inputFardos">
+  <label>Total do Pedido (fardos):</label>
+  <input id="pedidoFardos" type="number" min="1" placeholder="Ex: 850">
+</div>
 
-      if (!pl2 || !pbr || !pedido) {
-        alert("Preencha todos os campos corretamente!");
-        return;
+<!-- CAMPOS DE PALETES -->
+<div class="input-group" id="inputPaletes" style="display:none;">
+  <label>Quantidade de Paletes:</label>
+  <input id="pedidoPaletes" type="number" min="1" placeholder="Ex: 30">
+
+  <label>Tipo do Palete:</label>
+  <select id="tipoPalete">
+    <option value="pl2">PL2</option>
+    <option value="pbr">PBR</option>
+  </select>
+</div>
+
+<button onclick="calcular()">CALCULAR</button>
+
+<div id="resultado" class="result" style="display:none;"></div>
+
+<h3>XML Gerado:</h3>
+<textarea id="xmlBox" readonly></textarea>
+
+<script>
+  // Alternar campos
+  document.querySelectorAll('input[name="tipoCalculo"]').forEach(elem => {
+    elem.addEventListener("change", function(e) {
+      if (e.target.value === "fardos") {
+        document.getElementById("inputFardos").style.display = "block";
+        document.getElementById("inputPaletes").style.display = "none";
+      } else {
+        document.getElementById("inputFardos").style.display = "none";
+        document.getElementById("inputPaletes").style.display = "block";
       }
+    });
+  });
 
-      // cálculos
-      const pl2_total = pedido / pl2;
-      const pl2_inteiros = Math.floor(pl2_total);
+  function gerarXML(pl2, pbr, fardos, pl2nec, pbrnec, sobra) {
+    return `
+<Calculadora>
+  <Parametros>
+    <FardosPorPL2>${pl2}</FardosPorPL2>
+    <FardosPorPBR>${pbr}</FardosPorPBR>
+  </Parametros>
+  <Resultado>
+    <TotalFardos>${fardos}</TotalFardos>
+    <PL2_Necessarios>${pl2nec}</PL2_Necessarios>
+    <PBR_Necessarios>${pbrnec}</PBR_Necessarios>
+    <Sobra>${sobra}</Sobra>
+  </Resultado>
+</Calculadora>`.trim();
+  }
 
-      const pbr_total = pedido / pbr;
-      const pbr_inteiros = Math.floor(pbr_total);
+  function calcular() {
+    const pl2 = Number(document.getElementById("pl2").value);
+    const pbr = Number(document.getElementById("pbr").value);
+    const tipo = document.querySelector('input[name="tipoCalculo"]:checked').value;
 
-      const parte_decimal = pbr_total - pbr_inteiros;
-      const sobra = Math.round(parte_decimal * pbr);
-
-      // mostra resultados
-      document.getElementById("resultado").style.display = "block";
-      document.getElementById("resultado").innerHTML = `
-        <strong>Resultado:</strong><br><br>
-        PL2 necessários: <strong>${pl2_inteiros}</strong><br>
-        PBR necessários: <strong>${pbr_inteiros}</strong><br>
-        Sobra: <strong>${sobra} fardos</strong>
-      `;
+    if (!pl2 || !pbr) {
+      alert("Preencha PL2 e PBR!");
+      return;
     }
-  </script>
 
-    <button class="btn" onclick="location.href='index.html'">
-      pagina principal
-    </button>
+    let totalFardos = 0;
 
-    <button class="btn" onclick="location.href='contadordesku.html'">
-      Contador de SKU
-    </button>
+    if (tipo === "fardos") {
+      totalFardos = Number(document.getElementById("pedidoFardos").value);
+      if (!totalFardos) { alert("Quantidade de fardos inválida!"); return; }
 
-    <button class="btn" onclick="location.href='Geradordeqrcode.html'">
-      Gerador de QR Code
-    </button>
+    } else {
+      const qtdPaletes = Number(document.getElementById("pedidoPaletes").value);
+      const tipoPalete = document.getElementById("tipoPalete").value;
+
+      if (!qtdPaletes) { alert("Quantidade de paletes inválida!"); return; }
+
+      totalFardos = (tipoPalete === "pl2") ? qtdPaletes * pl2 : qtdPaletes * pbr;
+    }
+
+    // Cálculos
+    const pl2Nec = Math.floor(totalFardos / pl2);
+    const pbrNec = Math.floor(totalFardos / pbr);
+    const sobra = totalFardos - (pbrNec * pbr);
+
+    // Saída
+    document.getElementById("resultado").style.display = "block";
+    document.getElementById("resultado").innerHTML = `
+      <strong>Resultado:</strong><br><br>
+      Total de fardos: <strong>${totalFardos}</strong><br>
+      PL2 necessários: <strong>${pl2Nec}</strong><br>
+      PBR necessários: <strong>${pbrNec}</strong><br>
+      Sobra: <strong>${sobra}</strong>
+    `;
+
+    // XML
+    document.getElementById("xmlBox").value =
+      gerarXML(pl2, pbr, totalFardos, pl2Nec, pbrNec, sobra);
+  }
+</script>
+
 </body>
 </html>
