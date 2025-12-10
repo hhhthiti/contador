@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de QR Code</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #4caf50;
+      color: white;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #preview {
+      margin-top: 20px;
+      display: flex;
+      gap: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Gerador de QR Code + PDF</h2>
+
+  <label>Número do Agrupamento:</label>
+  <input id="agrupamento" type="text" placeholder="Ex: AGP12345">
+
+  <label>Número do Documento de Carga:</label>
+  <input id="documento" type="text" placeholder="Ex: DOC987654">
+
+  <div style="margin-top: 20px; text-align: center;">
+    <input type="text" id="campoTexto" placeholder="Digite o texto para o PDF" 
+           style="width: 80%; max-width: 400px; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;">
+  </div>
+
+  <button onclick="gerar()">Gerar PDF com QR Codes</button>
+
+  <div id="preview">
+    <div id="qr1"></div>
+    <div id="qr2"></div>
+  </div>
+
+  <script>
+
+function addImageToQRCode(id, imgPath) {
+  const canvas = document.querySelector(`#${id} canvas`);
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.src = imgPath;
+
+  img.onload = () => {
+    const logoSize = canvas.width * 0.22;
+    const x = (canvas.width - logoSize) / 2;
+    const y = (canvas.height - logoSize) / 2;
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
+
+    ctx.drawImage(img, x, y, logoSize, logoSize);
+  };
+}
+
+function gerar() {
+  const agr = document.getElementById("agrupamento").value.trim();
+  const doc = document.getElementById("documento").value.trim();
+
+  if (!doc) {
+    alert("Preencha o campo Documento de Carga.");
+    return;
+  }
+
+  document.getElementById("qr1").innerHTML = "";
+  document.getElementById("qr2").innerHTML = "";
+
+  if (agr) {
+    new QRCode(document.getElementById("qr1"), {
+      text: agr,
+      width: 200,
+      height: 200
+    });
+
+    setTimeout(() => {
+      addImageToQRCode("qr1", "icons/JSL.png");
+    }, 400);
+
+  } else {
+    document.getElementById("qr1").innerHTML = "<p>Agrupamento não informado</p>";
+  }
+
+  new QRCode(document.getElementById("qr2"), {
+    text: doc,
+    width: 200,
+    height: 200
+  });
+
+  setTimeout(() => {
+    addImageToQRCode("qr2", "icons/JSL.png");
+  }, 400);
+
+  setTimeout(() => {
+    gerarPDF();
+  }, 900);
+}
+
+function gerarPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF("landscape");
+
+  const fixedValue = "30648235";
+
+  // 🔧 Correção principal: QR fixo precisa existir no DOM
+  const tempDiv = document.createElement("div");
+  tempDiv.style.position = "absolute";
+  tempDiv.style.left = "-9999px";
+  document.body.appendChild(tempDiv);
+
+  new QRCode(tempDiv, {
+    text: fixedValue,
+    width: 200,
+    height: 200
+  });
+
+  setTimeout(() => {
+
+    const fixedCanvas = tempDiv.querySelector("canvas");
+    const ctx = fixedCanvas.getContext("2d");
+
+    const logo = new Image();
+    logo.src = "icons/JSL.png";
+
+    logo.onload = () => {
+
+      const logoSize = fixedCanvas.width * 0.22;
+      const x = (fixedCanvas.width - logoSize) / 2;
+      const y = (fixedCanvas.height - logoSize) / 2;
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
+
+      ctx.drawImage(logo, x, y, logoSize, logoSize);
+
+      const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
+
+      const canvas1 = document.querySelector("#qr1 canvas");
+      const canvas2 = document.querySelector("#qr2 canvas");
+
+      const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
+      const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
+
+      pdf.setFontSize(24);
+      pdf.text("EMPRESA", 35, 30);
+      pdf.text("AGRUPAMENTO", 135, 30);
+      pdf.text("DOC. CARGA", 235, 30);
+
+      // QR fixo + texto
+      pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
+      pdf.setFontSize(14);
+      pdf.text("30648235", 50, 118, { align: "center" });
+
+      // Agrupamento
+      if (img1) {
+        const agrupamentoTxt = document.getElementById("agrupamento").value;
+        pdf.addImage(img1, "PNG", 110, 30, 80, 80);
+        pdf.text(agrupamentoTxt, 150, 118, { align: "center" });
+      }
+
+      // Documento
+      if (img2) {
+        const documentoTxt = document.getElementById("documento").value;
+        pdf.addImage(img2, "PNG", 210, 30, 80, 80);
+        pdf.text(documentoTxt, 250, 118, { align: "center" });
+      }
+
+      // Texto inferior
+      const texto = document.getElementById("campoTexto").value || "Texto padrão";
+      pdf.setFontSize(60);
+      pdf.text(texto, 140, 130, { align: "center" });
+
+      pdf.save("qr_codes.pdf");
+    };
+
+  }, 400);
+}
+
+  </script>
+
+  <button onclick="location.href='Calculadoradefardos.html'">Calculadora de Fardos</button>
+  <button onclick="location.href='contadordesku.html'">Contador de SKU</button>
+  <button onclick="location.href='index.html'">Página Principal</button>
+
+</body>
+</html>
