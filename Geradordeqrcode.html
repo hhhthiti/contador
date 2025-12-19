@@ -139,7 +139,7 @@ function gerar() {
 
 
 // -----------------------------
-// GERAR PDF
+// GERAR PDF (versão que mostra o texto dos QR em vez de rótulos fixos)
 // -----------------------------
 function gerarPDF() {
   const { jsPDF } = window.jspdf;
@@ -172,7 +172,7 @@ function gerarPDF() {
       const y = (fixedCanvas.height - logoSize) / 2;
 
       // fundo branco atrás da logo
-       ctx.fillStyle = "white";
+      ctx.fillStyle = "white";
       ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
 
       // desenha logo
@@ -188,11 +188,15 @@ function gerarPDF() {
       const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
       const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
-      // texto
-      pdf.setFontSize(24);
-      pdf.text("EMPRESA", 35, 30);
-      pdf.text("AGRUPAMENTO", 135, 30);
-      pdf.text("DOC. CARGA", 235, 30);
+      // lê os valores (texto) usados nos QR — pega direto dos inputs
+      const agrText = document.getElementById("agrupamento").value.trim() || "";
+      const docText = document.getElementById("documento").value.trim() || "";
+
+      // texto (rótulos substituídos pelos textos dos QR)
+      pdf.setFontSize(16); // menor para caber textos mais longos
+      pdf.text(fixedValue, 35, 30);     // mostra o valor do QR fixo
+      pdf.text(agrText, 135, 30);       // mostra o texto do agrupamento
+      pdf.text(docText, 235, 30);       // mostra o texto do documento de carga
 
       // QR FIXO COM LOGO
       pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
