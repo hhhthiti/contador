@@ -193,7 +193,7 @@ function gerarPDF() {
       const docText = document.getElementById("documento").value.trim() || "";
 
       // texto (rótulos substituídos pelos textos dos QR)
-      pdf.setFontSize(16); // menor para caber textos mais longos
+      pdf.setFontSize(40); // menor para caber textos mais longos
       pdf.text(fixedValue, 35, 30);     // mostra o valor do QR fixo
       pdf.text(agrText, 135, 30);       // mostra o texto do agrupamento
       pdf.text(docText, 235, 30);       // mostra o texto do documento de carga
