@@ -50,8 +50,9 @@
   <input id="documento" type="text" placeholder="Ex: DOC987654">
 
   <div style="margin-top: 20px; text-align: center;">
-    <input type="text" id="campoTexto" placeholder="Digite o texto para o PDF" 
-           style="width: 80%; max-width: 400px; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;">
+    <textarea id="campoTexto" placeholder="Digite o texto para o PDF" rows="4"
+ style="width:80%; max-width:800px; min-height:100px; padding:10px; font-size:16px; border-radius:6px; border:1px solid #ccc; resize:vertical;">
+</textarea>
   </div>
 
   <button onclick="gerar()">Gerar PDF com QR Codes</button>
