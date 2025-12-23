@@ -140,7 +140,7 @@ function gerar() {
 
 
 // -----------------------------
-// GERAR PDF (versão que mostra o texto dos QR em vez de rótulos fixos)
+// GERAR PDF (com marca d'água)
 // -----------------------------
 function gerarPDF() {
   const { jsPDF } = window.jspdf;
@@ -179,7 +179,7 @@ function gerarPDF() {
       // desenha logo
       ctx.drawImage(logo, x, y, logoSize, logoSize);
 
-      // agora sim converte o QR com logo para imagem
+      // converte o QR com logo para imagem
       const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
 
       // pega QR de agrupamento e de documento
@@ -189,36 +189,52 @@ function gerarPDF() {
       const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
       const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
 
-      // lê os valores (texto) usados nos QR — pega direto dos inputs
+      // --- Marca d'água (por trás) ---
+      // Posições e dimensões da página
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      // Configura a aparência da marca d'água
+      pdf.setFontSize(48);                     // tamanho da marca
+      pdf.setTextColor(150);                   // cor cinza (0-255)
+      // Desenha a marca inclinada no centro. angle funciona no jsPDF para rotacionar o texto.
+      pdf.text("by Thiago dos Santos", pageW / 2, pageH / 2, { align: "center", angle: 45 });
+
+      // Se preferir a marca POR CIMA do conteúdo (sobre os QRs), mova o bloco acima para depois dos pdf.addImage(...)
+
+      // texto (substitui rótulos por textos dos inputs, se desejar)
       const agrText = document.getElementById("agrupamento").value.trim() || "";
       const docText = document.getElementById("documento").value.trim() || "";
 
-      // texto (rótulos substituídos pelos textos dos QR)
-      pdf.setFontSize(40); // menor para caber textos mais longos
-      pdf.text(fixedValue, 35, 30);     // mostra o valor do QR fixo
-      pdf.text(agrText, 135, 30);       // mostra o texto do agrupamento
-      pdf.text(docText, 235, 30);       // mostra o texto do documento de carga
+      pdf.setFontSize(36);
+      pdf.setTextColor(0); // volta para preto para os rótulos/textos
+      pdf.text(fixedValue, 35, 30);
+      pdf.text(agrText, 135, 30);
+      pdf.text(docText, 235, 30);
 
-      // QR FIXO COM LOGO
+      // Adiciona os QRs
       pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
-
-      // agrupamento
       if (img1) pdf.addImage(img1, "PNG", 110, 30, 80, 80);
-
-      // doc carga
       if (img2) pdf.addImage(img2, "PNG", 210, 30, 80, 80);
 
-      // texto do rodapé
-      const texto = document.getElementById("campoTexto").value || "Texto padrão";
-      pdf.setFontSize(60);
-      pdf.text(texto, 140, 130, { align: "center" });
+      // texto do rodapé — suporta múltiplas linhas
+      let texto = (document.getElementById("campoTexto").value || "Texto padrão").trim();
+      const maxWidth = 200;
+      let fontSize = 60;
+      pdf.setFontSize(fontSize);
+      let lines = pdf.splitTextToSize(texto, maxWidth);
+      if (lines.length > 2) {
+        fontSize = Math.max(18, 60 - (lines.length - 2) * 12);
+        pdf.setFontSize(fontSize);
+        lines = pdf.splitTextToSize(texto, maxWidth);
+      }
+      pdf.text(lines, 140, 130, { align: "center" });
 
       pdf.save("qr_codes.pdf");
     };
 
   }, 300);
 }
-
 
   </script>
 
