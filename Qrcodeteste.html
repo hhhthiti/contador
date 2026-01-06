@@ -1,215 +1,124 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gerador de QR Code</title>
+    <meta charset="UTF-8">
+    <title>Gerar QR Codes em PDF</title>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- QRCode.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <style>
-    body {
-      font-family: Arial;
-      padding: 20px;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #4caf50;
-      color: white;
-      font-size: 18px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    #preview {
-      margin-top: 20px;
-      display: flex;
-      gap: 20px;
-    }
-  </style>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+
+        input {
+            padding: 10px;
+            margin: 8px;
+            width: 250px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        #qrs {
+            display: none;
+        }
+
+        canvas {
+            background: #fff;
+        }
+    </style>
 </head>
 <body>
 
-  <h2>Gerador de QR Code + PDF</h2>
+    <h2>Gerar PDF com QR Codes</h2>
 
-  <label>Número do Agrupamento:</label>
-  <input id="agrupamento" type="text" placeholder="Ex: AGP12345">
+    <input type="text" id="matricula" placeholder="Matrícula">
+    <input type="text" id="senha" placeholder="Senha">
 
-  <label>Número do Documento de Carga:</label>
-  <input id="documento" type="text" placeholder="Ex: DOC987654">
+    <button onclick="gerarPDF()">Criar</button>
 
-  <div style="margin-top: 20px; text-align: center;">
-    <input type="text" id="campoTexto" placeholder="Digite o texto para o PDF" 
-           style="width: 80%; max-width: 400px; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;">
-  </div>
+    <!-- QR Codes escondidos -->
+    <div id="qrs">
+        <div id="qr1"></div>
+        <div id="qr2"></div>
+        <div id="qr3"></div>
+    </div>
 
-  <button onclick="gerar()">Gerar PDF com QR Codes</button>
+<script>
+async function gerarQRCodeComLogo(texto, elementoId) {
+    document.getElementById(elementoId).innerHTML = "";
 
-  <div id="preview">
-    <div id="qr1"></div>
-    <div id="qr2"></div>
-  </div>
-
-  <script>
-
-function addImageToQRCode(id, imgPath) {
-  const canvas = document.querySelector(`#${id} canvas`);
-  if (!canvas) return;
-
-  const ctx = canvas.getContext("2d");
-  const img = new Image();
-  img.src = imgPath;
-
-  img.onload = () => {
-    const logoSize = canvas.width * 0.22;
-    const x = (canvas.width - logoSize) / 2;
-    const y = (canvas.height - logoSize) / 2;
-
-    ctx.fillStyle = "white";
-    ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
-
-    ctx.drawImage(img, x, y, logoSize, logoSize);
-  };
-}
-
-function gerar() {
-  const agr = document.getElementById("agrupamento").value.trim();
-  const doc = document.getElementById("documento").value.trim();
-
-  if (!doc) {
-    alert("Preencha o campo Documento de Carga.");
-    return;
-  }
-
-  document.getElementById("qr1").innerHTML = "";
-  document.getElementById("qr2").innerHTML = "";
-
-  if (agr) {
-    new QRCode(document.getElementById("qr1"), {
-      text: agr,
-      width: 200,
-      height: 200
+    let qr = new QRCode(document.getElementById(elementoId), {
+        text: texto,
+        width: 300,
+        height: 300,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
     });
 
-    setTimeout(() => {
-      addImageToQRCode("qr1", "icons/JSL.png");
-    }, 400);
+    await new Promise(r => setTimeout(r, 300));
 
-  } else {
-    document.getElementById("qr1").innerHTML = "<p>Agrupamento não informado</p>";
-  }
+    let canvas = document.querySelector(`#${elementoId} canvas`);
+    let ctx = canvas.getContext("2d");
 
-  new QRCode(document.getElementById("qr2"), {
-    text: doc,
-    width: 200,
-    height: 200
-  });
+    let logo = new Image();
+    logo.src = "jsl-removebg-preview.png";
 
-  setTimeout(() => {
-    addImageToQRCode("qr2", "icons/JSL.png");
-  }, 400);
+    await new Promise(resolve => logo.onload = resolve);
 
-  setTimeout(() => {
-    gerarPDF();
-  }, 900);
+    let size = 70;
+    let x = (canvas.width - size) / 2;
+    let y = (canvas.height - size) / 2;
+
+    ctx.drawImage(logo, x, y, size, size);
+
+    return canvas.toDataURL("image/png");
 }
 
-function gerarPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF("landscape");
+async function gerarPDF() {
+    let matricula = document.getElementById("matricula").value;
+    let senha = document.getElementById("senha").value;
 
-  const fixedValue = "30648235";
+    if (!matricula || !senha) {
+        alert("Preencha todos os campos!");
+        return;
+    }
 
-  // 🔧 Correção principal: QR fixo precisa existir no DOM
-  const tempDiv = document.createElement("div");
-  tempDiv.style.position = "absolute";
-  tempDiv.style.left = "-9999px";
-  document.body.appendChild(tempDiv);
+    const qrMatricula = await gerarQRCodeComLogo(matricula, "qr1");
+    const qrSenha = await gerarQRCodeComLogo(senha, "qr2");
+    const qrJ8 = await gerarQRCodeComLogo("j8", "qr3");
 
-  new QRCode(tempDiv, {
-    text: fixedValue,
-    width: 200,
-    height: 200
-  });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+    });
 
-  setTimeout(() => {
+    pdf.addImage(qrMatricula, "PNG", 20, 40, 70, 70);
+    pdf.addImage(qrSenha, "PNG", 110, 40, 70, 70);
+    pdf.addImage(qrJ8, "PNG", 200, 40, 70, 70);
 
-    const fixedCanvas = tempDiv.querySelector("canvas");
-    const ctx = fixedCanvas.getContext("2d");
-
-    const logo = new Image();
-    logo.src = "icons/JSL.png";
-
-    logo.onload = () => {
-
-      const logoSize = fixedCanvas.width * 0.22;
-      const x = (fixedCanvas.width - logoSize) / 2;
-      const y = (fixedCanvas.height - logoSize) / 2;
-
-      ctx.fillStyle = "white";
-      ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
-
-      ctx.drawImage(logo, x, y, logoSize, logoSize);
-
-      const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
-
-      const canvas1 = document.querySelector("#qr1 canvas");
-      const canvas2 = document.querySelector("#qr2 canvas");
-
-      const img1 = canvas1 ? canvas1.toDataURL("image/png") : null;
-      const img2 = canvas2 ? canvas2.toDataURL("image/png") : null;
-
-      pdf.setFontSize(24);
-      pdf.text("EMPRESA", 35, 30);
-      pdf.text("AGRUPAMENTO", 135, 30);
-      pdf.text("DOC. CARGA", 235, 30);
-
-      // QR fixo + texto
-      pdf.addImage(fixedQRBase64, "PNG", 10, 30, 80, 80);
-      pdf.setFontSize(14);
-      pdf.text("30648235", 50, 118, { align: "center" });
-
-      // Agrupamento
-      if (img1) {
-        const agrupamentoTxt = document.getElementById("agrupamento").value;
-        pdf.addImage(img1, "PNG", 110, 30, 80, 80);
-        pdf.text(agrupamentoTxt, 150, 118, { align: "center" });
-      }
-
-      // Documento
-      if (img2) {
-        const documentoTxt = document.getElementById("documento").value;
-        pdf.addImage(img2, "PNG", 210, 30, 80, 80);
-        pdf.text(documentoTxt, 250, 118, { align: "center" });
-      }
-
-      // Texto inferior
-      const texto = document.getElementById("campoTexto").value || "Texto padrão";
-      pdf.setFontSize(60);
-      pdf.text(texto, 140, 130, { align: "center" });
-
-      pdf.save("qr_codes.pdf");
-    };
-
-  }, 400);
+    pdf.save("qrcodes.pdf");
 }
-
-  </script>
-
-  <button onclick="location.href='Calculadoradefardos.html'">Calculadora de Fardos</button>
-  <button onclick="location.href='contadordesku.html'">Contador de SKU</button>
-  <button onclick="location.href='index.html'">Página Principal</button>
+</script>
 
 </body>
 </html>
