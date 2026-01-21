@@ -69,33 +69,27 @@
 
 <script>
 // -----------------------------
-// Função que adiciona logo OU '-' aleatoriamente no centro do QR Code
+// Função que adiciona logo OU humm.png aleatoriamente no centro do QR Code
 // -----------------------------
-function addImageOrDash(canvas, imgPath) {
+function addRandomImage(canvas, logoPath, altPath) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
-  const useDash = Math.random() < 0.5;
 
-  if (useDash) {
+  // Sorteio: 50% logo, 50% humm.png
+  const useAlt = Math.random() < 0.5;
+  const img = new Image();
+  img.src = useAlt ? altPath : logoPath;
+
+  img.onload = () => {
+    const size = canvas.width * 0.22;
+    const x = (canvas.width - size) / 2;
+    const y = (canvas.height - size) / 2;
+
     ctx.fillStyle = "white";
-    ctx.fillRect(canvas.width/2 - 20, canvas.height/2 - 20, 40, 40);
-    ctx.fillStyle = "black";
-    ctx.font = "bold 28px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("-", canvas.width/2, canvas.height/2);
-  } else {
-    const img = new Image();
-    img.src = imgPath;
-    img.onload = () => {
-      const logoSize = canvas.width * 0.22;
-      const x = (canvas.width - logoSize) / 2;
-      const y = (canvas.height - logoSize) / 2;
-      ctx.fillStyle = "white";
-      ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
-      ctx.drawImage(img, x, y, logoSize, logoSize);
-    };
-  }
+    ctx.fillRect(x - 4, y - 4, size + 8, size + 8);
+
+    ctx.drawImage(img, x, y, size, size);
+  };
 }
 
 // -----------------------------
@@ -122,7 +116,7 @@ function gerar() {
     });
 
     setTimeout(() => {
-      addImageOrDash(document.querySelector("#qr1 canvas"), "icons/JSL.png");
+      addRandomImage(document.querySelector("#qr1 canvas"), "icons/JSL.png", "icons/humm.png");
     }, 300);
 
   } else {
@@ -137,7 +131,7 @@ function gerar() {
   });
 
   setTimeout(() => {
-    addImageOrDash(document.querySelector("#qr2 canvas"), "icons/JSL.png");
+    addRandomImage(document.querySelector("#qr2 canvas"), "icons/JSL.png", "icons/humm.png");
   }, 300);
 
   setTimeout(() => {
@@ -163,7 +157,7 @@ function gerarPDF() {
 
   setTimeout(() => {
     const fixedCanvas = tempDiv.querySelector("canvas");
-    addImageOrDash(fixedCanvas, "icons/JSL.png");
+    addRandomImage(fixedCanvas, "icons/JSL.png", "icons/humm.png");
 
     const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
 
