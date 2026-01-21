@@ -71,38 +71,28 @@
 // -----------------------------
 // Função que adiciona logo OU '-' aleatoriamente no centro do QR Code
 // -----------------------------
-function addImageOrDashToQRCode(id, imgPath) {
-  const canvas = document.querySelector(`#${id} canvas`);
+function addImageOrDash(canvas, imgPath) {
   if (!canvas) return;
-
   const ctx = canvas.getContext("2d");
-
-  // Sorteio: 50% chance de logo, 50% chance de '-'
   const useDash = Math.random() < 0.5;
 
   if (useDash) {
-    // Fundo branco atrás do traço
     ctx.fillStyle = "white";
     ctx.fillRect(canvas.width/2 - 20, canvas.height/2 - 20, 40, 40);
-
-    // Desenha o traço '-'
     ctx.fillStyle = "black";
     ctx.font = "bold 28px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("-", canvas.width/2, canvas.height/2);
   } else {
-    // Desenha a logo
     const img = new Image();
     img.src = imgPath;
     img.onload = () => {
       const logoSize = canvas.width * 0.22;
       const x = (canvas.width - logoSize) / 2;
       const y = (canvas.height - logoSize) / 2;
-
       ctx.fillStyle = "white";
       ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
-
       ctx.drawImage(img, x, y, logoSize, logoSize);
     };
   }
@@ -132,7 +122,7 @@ function gerar() {
     });
 
     setTimeout(() => {
-      addImageOrDashToQRCode("qr1", "icons/JSL.png");
+      addImageOrDash(document.querySelector("#qr1 canvas"), "icons/JSL.png");
     }, 300);
 
   } else {
@@ -147,7 +137,7 @@ function gerar() {
   });
 
   setTimeout(() => {
-    addImageOrDashToQRCode("qr2", "icons/JSL.png");
+    addImageOrDash(document.querySelector("#qr2 canvas"), "icons/JSL.png");
   }, 300);
 
   setTimeout(() => {
@@ -173,10 +163,7 @@ function gerarPDF() {
 
   setTimeout(() => {
     const fixedCanvas = tempDiv.querySelector("canvas");
-    const ctx = fixedCanvas.getContext("2d");
-
-    // também aplica a regra aleatória no QR fixo
-    addImageOrDashToQRCodeCanvas(fixedCanvas, "icons/JSL.png");
+    addImageOrDash(fixedCanvas, "icons/JSL.png");
 
     const fixedQRBase64 = fixedCanvas.toDataURL("image/png");
 
@@ -214,28 +201,11 @@ function gerarPDF() {
     pdf.save("qr_codes.pdf");
   }, 300);
 }
+</script>
 
-// Função auxiliar para aplicar logo ou '-' em um canvas já existente
-function addImageOrDashToQRCodeCanvas(canvas, imgPath) {
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const useDash = Math.random() < 0.5;
+  <button onclick="location.href='Calculadoradefardos.html'">Calculadora de Fardos</button>
+  <button onclick="location.href='contadordesku.html'">Contador de SKU</button>
+  <button onclick="location.href='index.html'">Página Principal</button>
 
-  if (useDash) {
-    ctx.fillStyle = "white";
-    ctx.fillRect(canvas.width/2 - 20, canvas.height/2 - 20, 40, 40);
-    ctx.fillStyle = "black";
-    ctx.font = "bold 28px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("-", canvas.width/2, canvas.height/2);
-  } else {
-    const img = new Image();
-    img.src = imgPath;
-    img.onload = () => {
-      const logoSize = canvas.width * 0.22;
-      const x = (canvas.width - logoSize) / 2;
-      const y = (canvas.height - logoSize) / 2;
-      ctx.fillStyle = "white";
-      ctx.fillRect(x - 4, y - 4, logoSize + 8, logoSize + 8);
-      ctx.drawImage(img, x, y, logoSize,
+</body>
+</html>
