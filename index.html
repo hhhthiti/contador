@@ -4,13 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Menu Principal</title>
-
   <style>
     body {
       margin: 0;
       padding: 0;
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -20,16 +19,21 @@
     .container {
       width: 90%;
       max-width: 350px;
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.15);
+      background: #fff;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
       text-align: center;
     }
 
     h2 {
       margin-bottom: 25px;
-      font-size: 22px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffcc00;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
     }
 
     .btn {
@@ -39,26 +43,18 @@
       background: #4caf50;
       color: white;
       font-size: 18px;
+      font-weight: bold;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      transition: 0.2s;
+      transition: 0.3s;
     }
 
     .btn:hover {
-      background: #3e8e41;
+      background: #45d65c;
+      transform: scale(1.05);
     }
-
   </style>
-  <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#4caf50">
-
-<script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js");
-  }
-</script>
-
 </head>
 <body>
 
@@ -78,9 +74,8 @@
     </button>
 
     <button class="btn" onclick="location.href='Qrcodeteste.html'">
-      qrcode to login
+      QR Code to Login
     </button>
-
   </div>
 
 </body>
