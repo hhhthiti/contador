@@ -30,7 +30,7 @@
       margin-bottom: 25px;
       font-size: 24px;
       font-weight: bold;
-      color: #ffcc00;
+      color: #ffcc00; /* Destaque em dourado */
       text-transform: uppercase;
       letter-spacing: 1.5px;
       text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
@@ -50,9 +50,18 @@
       transition: 0.3s;
     }
 
+    /* Estilo diferente para o botão de resumo se quiser destacar */
+    .btn-resumo {
+      background: #0056b3; 
+    }
+
     .btn:hover {
       background: #45d65c;
       transform: scale(1.05);
+    }
+
+    .btn-resumo:hover {
+      background: #007bff;
     }
   </style>
 </head>
@@ -61,20 +70,24 @@
   <div class="container">
     <h2>Menu Principal</h2>
 
+    <button class="btn btn-resumo" onclick="location.href='geradorderesumo.html'">
+      📊 Gerador de Resumo
+    </button>
+
     <button class="btn" onclick="location.href='Calculadoradefardos.html'">
-      Calculadora de Fardos
+      🧮Calculadora de Fardos
     </button>
 
     <button class="btn" onclick="location.href='contadordesku.html'">
-      Contador de SKU
+      👉Contador de SKU
     </button>
 
     <button class="btn" onclick="location.href='Geradordeqrcode.html'">
-      Gerador de QR Code
+      🤖Gerador de QR Code
     </button>
 
     <button class="btn" onclick="location.href='Qrcodeteste.html'">
-      QR Code to Login
+      🔄️QR Code to Login
     </button>
   </div>
 
