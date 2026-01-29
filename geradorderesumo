@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Resumo de Produção Automático</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { border-bottom: 2px solid #0056b3; margin-bottom: 20px; padding-bottom: 10px; color: #0056b3; }
+        textarea { width: 100%; height: 150px; border: 2px solid #ddd; border-radius: 8px; padding: 10px; font-family: monospace; box-sizing: border-box; }
+        .controles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 15px 0; }
+        input, select { padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 12px; cursor: pointer; border-radius: 5px; border: none; font-weight: bold; transition: 0.3s; }
+        .btn-processar { background: #0056b3; color: white; width: 100%; }
+        .btn-foto { background: #28a745; color: white; margin-top: 15px; width: 100%; font-size: 16px; }
+        
+        #area-resumo { background: white; padding: 20px; border: 1px solid #eee; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #444; padding: 10px; text-align: center; }
+        th { background: #f2f2f2; color: #333; }
+        .total-row { background: #e9ecef; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>Gerador de Resumo </h2>
+    </div>
+
+    <div class="controles">
+        <input type="date" id="data">
+        <select id="turno">
+            <option value="Manhã">Manhã (06:00 - 14:20)</option>
+            <option value="Tarde">Tarde (14:30 - 21:50)</option>
+            <option value="Noturno">Noturno (22:00 - 06:20)</option>
+        </select>
+        <button class="btn-processar" onclick="processarDados()">Processar Dados</button>
+    </div>
+
+    <label>Cole aqui as colunas do Excel (SKU, Norma, Fardos, PBR):</label>
+    <textarea id="input-excel" placeholder="Pode copiar as 4 colunas no Excel e colar aqui..."></textarea>
+
+    <div id="area-resumo">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0;">RESUMO DE PRODUÇÃO</h3>
+            <div id="info-topo"><strong>Data:</strong> <span id="res-data"></span> | <strong>Turno:</strong> <span id="res-turno"></span></div>
+        </div>
+        
+        <table id="tabela-final">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>PALETES (PBR)</th>
+                </tr>
+            </thead>
+            <tbody id="corpo-tabela"></tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td>TOTAL DO TURNO</td>
+                    <td id="soma-pbr">0</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <button class="btn-foto" onclick="gerarFoto()">📸 Gerar Foto para WhatsApp</button>
+</div>
+
+<script>
+    // Ajuste automático de data e turno
+    window.onload = function() {
+        const agora = new Date();
+        document.getElementById('data').value = agora.toISOString().split('T')[0];
+        const h = agora.getHours();
+        const m = agora.getMinutes();
+        const horaAtual = h + (m/60);
+        
+        let t = "Manhã";
+        if (horaAtual >= 14.5 && horaAtual < 21.8) t = "Tarde";
+        else if (horaAtual >= 22 || horaAtual < 6.3) t = "Noturno";
+        document.getElementById('turno').value = t;
+    };
+
+    function processarDados() {
+        const texto = document.getElementById('input-excel').value;
+        // Divide o texto em linhas, ignorando linhas vazias
+        const linhas = texto.split(/\n/).filter(l => l.trim() !== "");
+        
+        let consolidado = {};
+        let totalGeral = 0;
+
+        linhas.forEach(linha => {
+            // Divide a linha por espaços ou Tabs (o que acontece quando cola do Excel)
+            let colunas = linha.split(/\s+/).filter(c => c.trim() !== "");
+
+            // Se a linha tiver as informações (SKU, Norma, Fardos, PBR)
+            // O SKU costuma ser o primeiro (índice 0) e o PBR o último
+            if (colunas.length >= 2) {
+                let sku = colunas[0];
+                let pbr = parseInt(colunas[colunas.length - 1]); // Pega sempre o último valor da linha
+
+                if (!isNaN(pbr) && sku.length >= 8) {
+                    consolidado[sku] = (consolidado[sku] || 0) + pbr;
+                    totalGeral += pbr;
+                }
+            }
+        });
+
+        exibir(consolidado, totalGeral);
+    }
+
+    function exibir(dados, total) {
+        const corpo = document.getElementById('corpo-tabela');
+        corpo.innerHTML = "";
+        for (let sku in dados) {
+            corpo.innerHTML += `<tr><td>${sku}</td><td>${dados[sku]}</td></tr>`;
+        }
+        document.getElementById('soma-pbr').innerText = total;
+        document.getElementById('res-data').innerText = document.getElementById('data').value.split('-').reverse().join('/');
+        document.getElementById('res-turno').innerText = document.getElementById('turno').value;
+    }
+
+    function gerarFoto() {
+        const alvo = document.getElementById('area-resumo');
+        html2canvas(alvo).then(canvas => {
+            const img = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.download = `Producao_${document.getElementById('turno').value}.png`;
+            link.href = img;
+            link.click();
+        });
+    }
+</script>
+
+</body>
+</html>
