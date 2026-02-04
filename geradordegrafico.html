@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Cargas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h2>Colar dados (DT;CARGA;KG)</h2>
+  <textarea id="input" rows="10" cols="50"></textarea><br>
+  <button onclick="processar()">Gerar Relatório</button>
+  <div id="tabela"></div>
+  <canvas id="grafico"></canvas>
+  <button onclick="exportar()">Exportar como Imagem</button>
+
+  <script>
+    function processar() {
+      const texto = document.getElementById("input").value.trim();
+      const linhas = texto.split("\n");
+      let dados = [];
+      let totalPalet = 0, totalEstiva = 0, qtdPalet = 0, qtdEstiva = 0;
+
+      linhas.forEach(l => {
+        const [dt, carga, kg] = l.split(";");
+        dados.push({dt, carga, kg: parseFloat(kg)});
+        if (carga.toUpperCase() === "PALETIZADA") {
+          qtdPalet++; totalPalet += parseFloat(kg);
+        } else {
+          qtdEstiva++; totalEstiva += parseFloat(kg);
+        }
+      });
+
+      // Mostrar tabela
+      let html = "<table border=1><tr><th>DT</th><th>CARGA</th><th>KG</th></tr>";
+      dados.forEach(d => {
+        html += `<tr><td>${d.dt}</td><td>${d.carga}</td><td>${d.kg}</td></tr>`;
+      });
+      html += "</table>";
+      html += `<p>Carros Paletizados: ${qtdPalet} | Peso: ${totalPalet} kg</p>`;
+      html += `<p>Carros Estivados: ${qtdEstiva} | Peso: ${totalEstiva} kg</p>`;
+      html += `<p>Total: ${qtdPalet+qtdEstiva} carros | ${(totalPalet+totalEstiva)/1000} toneladas</p>`;
+      document.getElementById("tabela").innerHTML = html;
+
+      // Gráfico
+      new Chart(document.getElementById("grafico"), {
+        type: 'bar',
+        data: {
+          labels: ['Paletizados', 'Estivados'],
+          datasets: [{
+            label: 'Peso (kg)',
+            data: [totalPalet, totalEstiva],
+            backgroundColor: ['blue','green']
+          }]
+        }
+      });
+    }
+
+    function exportar() {
+      const canvas = document.getElementById("grafico");
+      const img = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = img;
+      link.download = "relatorio.png";
+      link.click();
+    }
+  </script>
+</body>
+</html>
