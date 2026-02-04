@@ -1,147 +1,89 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório de Cargas v2</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9ecef; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 700px; text-align: center; }
-        textarea { width: 100%; height: 120px; margin-bottom: 15px; border: 2px solid #ced4da; border-radius: 6px; padding: 12px; box-sizing: border-box; font-size: 14px; }
-        .btns { display: flex; gap: 10px; justify-content: center; }
-        button { border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        #btnGerar { background-color: #28a745; color: white; }
-        #btnExport { background-color: #007bff; color: white; display: none; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
-        
-        #relatorio { background: white; padding: 30px; border-radius: 8px; margin-top: 25px; width: 100%; max-width: 700px; box-sizing: border-box; border: 1px solid #dee2e6; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-        th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
-        th { background-color: #f8f9fa; color: #495057; }
-        .resumo-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .card { padding: 15px; border-radius: 8px; background: #f8f9fa; border-left: 5px solid #28a745; text-align: left; }
-        .card.paletizada { border-left-color: #17a2b8; }
-        .total-geral { grid-column: span 2; background: #343a40; color: white; text-align: center; font-size: 18px; border: none; }
-        canvas { max-width: 100%; margin-top: 25px; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Relatório de Cargas</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #tabela { margin-top: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+  </style>
 </head>
 <body>
+  <h2>Upload da foto da folha</h2>
+  <input type="file" id="upload" accept="image/*"><br><br>
+  <button onclick="processar()">Gerar Relatório</button>
 
-<div class="container">
-    <h2>🚚 Conversor de Cargas</h2>
-    <p>Cole as colunas do Excel abaixo (DT, Carga, KG):</p>
-    <textarea id="inputDados" placeholder="Cole aqui os dados copiados do Excel..."></textarea>
-    <div class="btns">
-        <button id="btnGerar" onclick="processarDados()">Gerar Relatório</button>
-        <button id="btnExport" onclick="exportarFoto()">Baixar Foto para WhatsApp</button>
-    </div>
-</div>
+  <div id="tabela"></div>
+  <canvas id="grafico"></canvas>
+  <button onclick="exportar()">Exportar como Imagem</button>
 
-<div id="relatorio" style="display:none;">
-    <h2 style="text-align: center; color: #333; margin-top: 0;">Resumo de Carregamento</h2>
-    <div id="tabelaResultado"></div>
-    
-    <div class="resumo-cards">
-        <div class="card" id="cardEstivada"></div>
-        <div class="card paletizada" id="cardPaletizada"></div>
-        <div class="card total-geral" id="cardTotal"></div>
-    </div>
-    
-    <canvas id="graficoCargas"></canvas>
-</div>
+  <script>
+    let resumoGlobal = null;
 
-<script>
-let meuGrafico = null;
+    async function processar() {
+      const file = document.getElementById("upload").files[0];
+      if (!file) { alert("Selecione uma imagem primeiro!"); return; }
 
-function limparNumero(valor) {
-    if (!valor) return 0;
-    // Remove pontos de milhar e troca vírgula por ponto decimal
-    let limpo = valor.replace(/\./g, '').replace(',', '.');
-    return parseFloat(limpo) || 0;
-}
+      const { data: { text } } = await Tesseract.recognize(file, 'por');
+      const linhas = text.trim().split("\n");
+      let dados = [];
+      let totalPalet = 0, totalEstiva = 0, qtdPalet = 0, qtdEstiva = 0;
 
-function processarDados() {
-    const texto = document.getElementById('inputDados').value.trim();
-    if (!texto) return alert("O campo está vazio!");
-
-    const linhas = texto.split('\n');
-    let dados = { estivada: { qtd: 0, peso: 0 }, paletizada: { qtd: 0, peso: 0 } };
-    let htmlTabela = '<table><thead><tr><th>DT</th><th>Tipo</th><th>Peso (KG)</th></tr></thead><tbody>';
-    let temDados = false;
-
-    linhas.forEach(linha => {
-        // Ignora linhas de cabeçalho ou de soma
-        if (linha.toUpperCase().includes("SOMA") || linha.toUpperCase().includes("DT") || linha.trim() === "") return;
-
-        const colunas = linha.split(/\t|\s{2,}/); 
-        if (colunas.length >= 3) {
-            const dt = colunas[0].trim();
-            const tipo = colunas[1].trim().toUpperCase();
-            const peso = limparNumero(colunas[2].trim());
-
-            htmlTabela += `<tr><td>${dt}</td><td>${tipo}</td><td>${peso.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>`;
-
-            if (tipo.includes("ESTIVADA")) {
-                dados.estivada.qtd++;
-                dados.estivada.peso += peso;
-            } else {
-                dados.paletizada.qtd++;
-                dados.paletizada.peso += peso;
-            }
-            temDados = true;
+      linhas.forEach(l => {
+        const partes = l.split(/[\s;,\t]+/); // aceita ; ou espaço
+        if (partes.length >= 3) {
+          const dt = partes[0];
+          const carga = partes[1].toUpperCase();
+          const kg = parseFloat(partes[2]);
+          if (!isNaN(kg)) {
+            dados.push({dt, carga, kg});
+            if (carga.includes("PALET")) { qtdPalet++; totalPalet += kg; }
+            else if (carga.includes("ESTIV")) { qtdEstiva++; totalEstiva += kg; }
+          }
         }
-    });
+      });
 
-    if (!temDados) return alert("Não consegui identificar os dados. Verifique se copiou as 3 colunas corretamente.");
+      // Tabela
+      let html = "<table><tr><th>DT</th><th>CARGA</th><th>KG</th></tr>";
+      dados.forEach(d => {
+        html += `<tr><td>${d.dt}</td><td>${d.carga}</td><td>${d.kg}</td></tr>`;
+      });
+      html += "</table>";
+      html += `<p>Carros Paletizados: ${qtdPalet} | Peso: ${totalPalet} kg</p>`;
+      html += `<p>Carros Estivados: ${qtdEstiva} | Peso: ${totalEstiva} kg</p>`;
+      html += `<p>Total: ${qtdPalet+qtdEstiva} carros | ${(totalPalet+totalEstiva)/1000} toneladas</p>`;
+      document.getElementById("tabela").innerHTML = html;
 
-    htmlTabela += '</tbody></table>';
-    const totalPeso = dados.estivada.peso + dados.paletizada.peso;
-    const totalCarros = dados.estivada.qtd + dados.paletizada.qtd;
+      resumoGlobal = {totalPalet, totalEstiva};
+      gerarGrafico(totalPalet, totalEstiva);
+    }
 
-    document.getElementById('tabelaResultado').innerHTML = htmlTabela;
-    document.getElementById('cardEstivada').innerHTML = `<strong>🚛 ESTIVADOS</strong><br>Qtd: ${dados.estivada.qtd}<br>Peso: ${dados.estivada.peso.toLocaleString('pt-BR')} kg`;
-    document.getElementById('cardPaletizada').innerHTML = `<strong>📦 PALETIZADOS</strong><br>Qtd: ${dados.paletizada.qtd}<br>Peso: ${dados.paletizada.peso.toLocaleString('pt-BR')} kg`;
-    document.getElementById('cardTotal').innerHTML = `TOTAL: ${totalCarros} Carros | ${(totalPeso / 1000).toFixed(2)} Toneladas`;
-
-    gerarGrafico(dados);
-    document.getElementById('relatorio').style.display = 'block';
-    document.getElementById('btnExport').style.display = 'inline-block';
-}
-
-function gerarGrafico(dados) {
-    const ctx = document.getElementById('graficoCargas').getContext('2d');
-    if (meuGrafico) meuGrafico.destroy();
-
-    meuGrafico = new Chart(ctx, {
-        type: 'doughnut',
+    function gerarGrafico(totalPalet, totalEstiva) {
+      new Chart(document.getElementById("grafico"), {
+        type: 'bar',
         data: {
-            labels: ['Estivada (kg)', 'Paletizada (kg)'],
-            datasets: [{
-                data: [dados.estivada.peso, dados.paletizada.peso],
-                backgroundColor: ['#28a745', '#17a2b8'],
-                borderWidth: 2
-            }]
-        },
-        options: {
-            plugins: {
-                legend: { position: 'bottom' }
-            }
+          labels: ['Paletizados', 'Estivados'],
+          datasets: [{
+            label: 'Peso (kg)',
+            data: [totalPalet, totalEstiva],
+            backgroundColor: ['blue','green']
+          }]
         }
-    });
-}
+      });
+    }
 
-function exportarFoto() {
-    const relatorio = document.getElementById('relatorio');
-    html2canvas(relatorio, { scale: 2 }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = 'Relatorio_Diario.png';
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-    });
-}
-</script>
-
+    function exportar() {
+      const canvas = document.getElementById("grafico");
+      const img = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = img;
+      link.download = "relatorio.png";
+      link.click();
+    }
+  </script>
 </body>
 </html>
