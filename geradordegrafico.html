@@ -3,82 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório de Cargas</title>
+    <title>Relatório de Cargas v2</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
-        textarea { width: 100%; height: 100px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; padding: 10px; box-sizing: border-box; }
-        button { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
-        button:hover { background-color: #218838; }
-        #btnExport { background-color: #007bff; }
-        #relatorio { background: white; padding: 20px; border: 1px solid #ddd; margin-top: 20px; width: 100%; box-sizing: border-box; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .resumo { margin-top: 15px; font-weight: bold; line-height: 1.6; }
-        canvas { max-width: 100%; margin-top: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9ecef; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 700px; text-align: center; }
+        textarea { width: 100%; height: 120px; margin-bottom: 15px; border: 2px solid #ced4da; border-radius: 6px; padding: 12px; box-sizing: border-box; font-size: 14px; }
+        .btns { display: flex; gap: 10px; justify-content: center; }
+        button { border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        #btnGerar { background-color: #28a745; color: white; }
+        #btnExport { background-color: #007bff; color: white; display: none; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        
+        #relatorio { background: white; padding: 30px; border-radius: 8px; margin-top: 25px; width: 100%; max-width: 700px; box-sizing: border-box; border: 1px solid #dee2e6; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
+        th { background-color: #f8f9fa; color: #495057; }
+        .resumo-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .card { padding: 15px; border-radius: 8px; background: #f8f9fa; border-left: 5px solid #28a745; text-align: left; }
+        .card.paletizada { border-left-color: #17a2b8; }
+        .total-geral { grid-column: span 2; background: #343a40; color: white; text-align: center; font-size: 18px; border: none; }
+        canvas { max-width: 100%; margin-top: 25px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Conversor de Cargas Excel</h2>
-    <p>Cole as 3 colunas do Excel abaixo (DT, Carga, KG):</p>
-    <textarea id="inputDados" placeholder="Exemplo:&#10;22513420   ESTIVADA   8539,09&#10;22540447   PALETIZADA   4710,04"></textarea>
-    <button onclick="processarDados()">Gerar Relatório</button>
-    <button id="btnExport" onclick="exportarFoto()" style="display:none;">Baixar Foto para WhatsApp</button>
+    <h2>🚚 Conversor de Cargas</h2>
+    <p>Cole as colunas do Excel abaixo (DT, Carga, KG):</p>
+    <textarea id="inputDados" placeholder="Cole aqui os dados copiados do Excel..."></textarea>
+    <div class="btns">
+        <button id="btnGerar" onclick="processarDados()">Gerar Relatório</button>
+        <button id="btnExport" onclick="exportarFoto()">Baixar Foto para WhatsApp</button>
+    </div>
 </div>
 
 <div id="relatorio" style="display:none;">
-    <h2 style="text-align: center;">Resumo de Carregamento</h2>
+    <h2 style="text-align: center; color: #333; margin-top: 0;">Resumo de Carregamento</h2>
     <div id="tabelaResultado"></div>
-    <div class="resumo" id="resumoTexto"></div>
+    
+    <div class="resumo-cards">
+        <div class="card" id="cardEstivada"></div>
+        <div class="card paletizada" id="cardPaletizada"></div>
+        <div class="card total-geral" id="cardTotal"></div>
+    </div>
+    
     <canvas id="graficoCargas"></canvas>
 </div>
 
 <script>
 let meuGrafico = null;
 
+function limparNumero(valor) {
+    if (!valor) return 0;
+    // Remove pontos de milhar e troca vírgula por ponto decimal
+    let limpo = valor.replace(/\./g, '').replace(',', '.');
+    return parseFloat(limpo) || 0;
+}
+
 function processarDados() {
     const texto = document.getElementById('inputDados').value.trim();
-    if (!texto) return alert("Cole os dados primeiro!");
+    if (!texto) return alert("O campo está vazio!");
 
     const linhas = texto.split('\n');
     let dados = { estivada: { qtd: 0, peso: 0 }, paletizada: { qtd: 0, peso: 0 } };
-    let htmlTabela = '<table><tr><th>DT</th><th>Tipo</th><th>Peso (KG)</th></tr>';
+    let htmlTabela = '<table><thead><tr><th>DT</th><th>Tipo</th><th>Peso (KG)</th></tr></thead><tbody>';
+    let temDados = false;
 
     linhas.forEach(linha => {
-        const colunas = linha.split(/\t|\s{2,}/); // Divide por tabulação ou espaços múltiplos
+        // Ignora linhas de cabeçalho ou de soma
+        if (linha.toUpperCase().includes("SOMA") || linha.toUpperCase().includes("DT") || linha.trim() === "") return;
+
+        const colunas = linha.split(/\t|\s{2,}/); 
         if (colunas.length >= 3) {
             const dt = colunas[0].trim();
             const tipo = colunas[1].trim().toUpperCase();
-            const peso = parseFloat(colunas[2].replace('.', '').replace(',', '.'));
+            const peso = limparNumero(colunas[2].trim());
 
-            htmlTabela += `<tr><td>${dt}</td><td>${tipo}</td><td>${peso.toLocaleString('pt-BR')}</td></tr>`;
+            htmlTabela += `<tr><td>${dt}</td><td>${tipo}</td><td>${peso.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>`;
 
             if (tipo.includes("ESTIVADA")) {
                 dados.estivada.qtd++;
                 dados.estivada.peso += peso;
-            } else if (tipo.includes("PALETIZADA")) {
+            } else {
                 dados.paletizada.qtd++;
                 dados.paletizada.peso += peso;
             }
+            temDados = true;
         }
     });
 
-    htmlTabela += '</table>';
+    if (!temDados) return alert("Não consegui identificar os dados. Verifique se copiou as 3 colunas corretamente.");
+
+    htmlTabela += '</tbody></table>';
     const totalPeso = dados.estivada.peso + dados.paletizada.peso;
     const totalCarros = dados.estivada.qtd + dados.paletizada.qtd;
 
     document.getElementById('tabelaResultado').innerHTML = htmlTabela;
-    document.getElementById('resumoTexto').innerHTML = `
-        <hr>
-        🚗 Carros Estivados: ${dados.estivada.qtd} (Peso: ${dados.estivada.peso.toLocaleString('pt-BR')} kg)<br>
-        📦 Carros Paletizados: ${dados.paletizada.qtd} (Peso: ${dados.paletizada.peso.toLocaleString('pt-BR')} kg)<br>
-        📊 TOTAL: ${totalCarros} carros | ${(totalPeso / 1000).toFixed(2)} Toneladas
-    `;
+    document.getElementById('cardEstivada').innerHTML = `<strong>🚛 ESTIVADOS</strong><br>Qtd: ${dados.estivada.qtd}<br>Peso: ${dados.estivada.peso.toLocaleString('pt-BR')} kg`;
+    document.getElementById('cardPaletizada').innerHTML = `<strong>📦 PALETIZADOS</strong><br>Qtd: ${dados.paletizada.qtd}<br>Peso: ${dados.paletizada.peso.toLocaleString('pt-BR')} kg`;
+    document.getElementById('cardTotal').innerHTML = `TOTAL: ${totalCarros} Carros | ${(totalPeso / 1000).toFixed(2)} Toneladas`;
 
     gerarGrafico(dados);
     document.getElementById('relatorio').style.display = 'block';
@@ -90,24 +115,29 @@ function gerarGrafico(dados) {
     if (meuGrafico) meuGrafico.destroy();
 
     meuGrafico = new Chart(ctx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
-            labels: ['Estivada', 'Paletizada'],
+            labels: ['Estivada (kg)', 'Paletizada (kg)'],
             datasets: [{
-                label: 'Peso por Tipo (KG)',
                 data: [dados.estivada.peso, dados.paletizada.peso],
-                backgroundColor: ['#ffc107', '#17a2b8']
+                backgroundColor: ['#28a745', '#17a2b8'],
+                borderWidth: 2
             }]
+        },
+        options: {
+            plugins: {
+                legend: { position: 'bottom' }
+            }
         }
     });
 }
 
 function exportarFoto() {
     const relatorio = document.getElementById('relatorio');
-    html2canvas(relatorio).then(canvas => {
+    html2canvas(relatorio, { scale: 2 }).then(canvas => {
         const link = document.createElement('a');
-        link.download = 'relatorio_cargas.png';
-        link.href = canvas.toDataURL();
+        link.download = 'Relatorio_Diario.png';
+        link.href = canvas.toDataURL("image/png");
         link.click();
     });
 }
