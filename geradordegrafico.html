@@ -3,68 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório de Cargas - Versão Blindada</title>
+    <title>Relatório de Cargas JSL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 700px; }
-        .upload-area { border: 2px dashed #007bff; background: #f8f9ff; padding: 20px; border-radius: 10px; text-align: center; cursor: pointer; margin-bottom: 10px; }
-        textarea { width: 100%; height: 150px; margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; }
-        .btns { display: flex; gap: 10px; justify-content: center; }
-        button { border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9ecef; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 750px; }
+        
+        /* Área de Upload */
+        .upload-area { border: 2px dashed #f00; background: #fff5f5; padding: 20px; border-radius: 10px; text-align: center; cursor: pointer; margin-bottom: 10px; transition: 0.3s; }
+        .upload-area:hover { background: #ffebeb; }
+        
+        textarea { width: 100%; height: 120px; margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; box-sizing: border-box; }
+        
+        .btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        button { border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
         .btn-green { background: #28a745; }
-        .btn-blue { background: #007bff; }
-        #relatorio { background: white; padding: 20px; border-radius: 10px; margin-top: 20px; width: 100%; max-width: 700px; display: none; border: 1px solid #ddd; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #eee; padding: 8px; text-align: left; font-size: 13px; }
-        th { background: #f8f9fa; }
-        .resumo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .card { padding: 15px; border-radius: 8px; color: white; }
+        .btn-blue { background: #0056b3; }
+        button:hover { opacity: 0.8; }
+
+        /* Estilo Planilha */
+        #relatorio { background: white; padding: 30px; border-radius: 5px; margin-top: 20px; width: 100%; max-width: 800px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
+        .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .logo-jsl { height: 50px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; }
+        th { background: #343a40; color: white; padding: 10px; text-align: center; font-size: 12px; text-transform: uppercase; }
+        td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 13px; font-weight: 500; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+
+        .resumo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .card { padding: 15px; border-radius: 8px; color: white; text-align: center; }
         .estivada { background: #28a745; }
         .paletizada { background: #17a2b8; }
-        .total { background: #343a40; grid-column: span 2; text-align: center; }
+        .total-card { background: #ed1c24; } /* Vermelho JSL */
+        
+        #graficoCargas { max-height: 250px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center">🚚 Sistema de Cargas</h2>
+    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Expedição</h2>
     
     <div class="upload-area" onclick="document.getElementById('fotoInput').click()">
-        <strong>📸 Clique para Tirar Foto ou Subir Imagem</strong>
+        <strong>📸 Tirar Foto da Planilha ou Subir Imagem</strong>
         <input type="file" id="fotoInput" accept="image/*" style="display:none">
-        <div id="status" style="color: #007bff; margin-top: 10px; font-weight: bold;"></div>
+        <div id="status" style="color: #ed1c24; margin-top: 10px; font-weight: bold;"></div>
     </div>
 
-    <textarea id="inputDados" placeholder="Os dados da foto aparecerão aqui..."></textarea>
+    <textarea id="inputDados" placeholder="Os dados extraídos aparecerão aqui. Você também pode digitar manualmente: 
+DT001 Estivada 2500,50 08:30"></textarea>
 
     <div class="btns">
-        <button class="btn-green" onclick="processarDados()">📊 Gerar Relatório</button>
-        <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📲 Salvar Foto WhatsApp</button>
+        <button class="btn-green" onclick="processarDados()">📊 Gerar Tabela</button>
+        <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📲 Salvar Imagem</button>
     </div>
 </div>
 
 <div id="relatorio">
-    <h3 style="text-align: center;">Resumo Diário de Carregamento</h3>
+    <div class="header-relatorio">
+        <img src="icons/JSL.png" alt="JSL" class="logo-jsl" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png'">
+        <div style="text-align: right;">
+            <h3 style="margin:0; color: #ed1c24;">RESUMO DE CARREGAMENTO</h3>
+            <small id="dataAtual"></small>
+        </div>
+    </div>
+
     <div id="tabelaResultado"></div>
+
     <div class="resumo-grid">
         <div class="card estivada" id="cardE"></div>
         <div class="card paletizada" id="cardP"></div>
-        <div class="card total" id="cardT"></div>
+        <div class="card total-card" id="cardT"></div>
     </div>
-    <canvas id="graficoCargas" style="margin-top:20px;"></canvas>
+
+    <canvas id="graficoCargas"></canvas>
 </div>
 
 <script>
 let meuGrafico = null;
 
+// Atualiza a data no relatório
+document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('pt-BR');
+
 document.getElementById('fotoInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
     const status = document.getElementById('status');
-    status.innerText = "⏳ Lendo foto... aguarde.";
+    status.innerText = "⏳ Lendo dados da imagem...";
     
     Tesseract.recognize(file, 'por').then(({ data: { text } }) => {
         document.getElementById('inputDados').value = text;
@@ -74,53 +102,55 @@ document.getElementById('fotoInput').addEventListener('change', function(e) {
 
 function limparEConverterPeso(texto) {
     if (!texto) return 0;
-    // Remove tudo que não for número, vírgula ou ponto
     let limpo = texto.replace(/[^\d.,]/g, '');
-    
-    // Se tiver vírgula e ponto (ex: 8.539,09), remove o ponto e troca vírgula por ponto
     if (limpo.includes(',') && limpo.includes('.')) {
         limpo = limpo.replace(/\./g, '').replace(',', '.');
     } else {
         limpo = limpo.replace(',', '.');
     }
-
     let valor = parseFloat(limpo);
-    
-    // TRUQUE PARA FOTOS: Se o peso vier sem vírgula (ex: 223075 em vez de 2230.75)
-    // Se o valor for maior que 50.000 (muito pesado para um carro comum), dividimos por 100
-    if (valor > 50000 && !texto.includes(',') && !texto.includes('.')) {
-        valor = valor / 100;
-    }
-    
+    if (valor > 50000 && !texto.includes(',') && !texto.includes('.')) valor = valor / 100;
     return valor || 0;
+}
+
+function extrairHorario(linha) {
+    // Procura por padrão 00:00
+    const match = linha.match(/([01]?[0-9]|2[0-3]):[0-5][0-9]/);
+    return match ? match[0] : "-";
 }
 
 function processarDados() {
     const texto = document.getElementById('inputDados').value.trim();
     const linhas = texto.split('\n');
     let dados = { estivada: { qtd: 0, peso: 0 }, paletizada: { qtd: 0, peso: 0 } };
-    let htmlTabela = '<table><tr><th>DT</th><th>Tipo</th><th>Peso (KG)</th></tr>';
+    
+    let htmlTabela = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>HORÁRIO</th><th>PESO (KG)</th></tr></thead><tbody>';
     let temDados = false;
 
     linhas.forEach(linha => {
         let l = linha.toUpperCase();
         if (l.includes("SOMA") || l.length < 5) return;
 
-        // Tenta pegar os blocos de texto da linha
-        let partes = l.split(/\s+/).filter(p => p.length > 2);
+        let partes = l.split(/\s+/).filter(p => p.length >= 2);
         if (partes.length < 2) return;
 
         let dt = partes[0];
         let peso = limparEConverterPeso(partes[partes.length - 1]);
+        let horario = extrairHorario(l);
         
-        // Identifica o tipo mesmo com erro de leitura (ex: "paErnZADA")
         let tipo = "PALETIZADA";
         if (l.includes("ESTIV") || l.includes("ESTIW") || l.includes("ESTV")) {
             tipo = "ESTIVADA";
         }
 
         if (peso > 0) {
-            htmlTabela += `<tr><td>${dt}</td><td>${tipo}</td><td>${peso.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td></tr>`;
+            htmlTabela += `<tr>
+                <td>${dt}</td>
+                <td>${tipo}</td>
+                <td>${horario}</td>
+                <td>${peso.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
+            </tr>`;
+            
             if (tipo === "ESTIVADA") {
                 dados.estivada.qtd++;
                 dados.estivada.peso += peso;
@@ -132,14 +162,14 @@ function processarDados() {
         }
     });
 
-    if (!temDados) return alert("Não consegui ler os números. Verifique o texto e tente novamente.");
+    if (!temDados) return alert("Não foram encontrados dados válidos. Digite no formato: DT TIPO PESO HORARIO");
 
-    document.getElementById('tabelaResultado').innerHTML = htmlTabela + '</table>';
-    document.getElementById('cardE').innerHTML = `<b>ESTIVADA</b><br>${dados.estivada.qtd} carros<br>${dados.estivada.peso.toLocaleString('pt-BR')} kg`;
-    document.getElementById('cardP').innerHTML = `<b>PALETIZADA</b><br>${dados.paletizada.qtd} carros<br>${dados.paletizada.peso.toLocaleString('pt-BR')} kg`;
+    document.getElementById('tabelaResultado').innerHTML = htmlTabela + '</tbody></table>';
+    document.getElementById('cardE').innerHTML = `<b>ESTIVADA</b><br>${dados.estivada.qtd} Carros<br>${dados.estivada.peso.toLocaleString('pt-BR')} kg`;
+    document.getElementById('cardP').innerHTML = `<b>PALETIZADA</b><br>${dados.paletizada.qtd} Carros<br>${dados.paletizada.peso.toLocaleString('pt-BR')} kg`;
     
     let totalPeso = dados.estivada.peso + dados.paletizada.peso;
-    document.getElementById('cardT').innerHTML = `<b>TOTAL GERAL</b><br>${dados.estivada.qtd + dados.paletizada.qtd} Carros | ${(totalPeso/1000).toFixed(2)} Toneladas`;
+    document.getElementById('cardT').innerHTML = `<b>TOTAL GERAL</b><br>${dados.estivada.qtd + dados.paletizada.qtd} Veículos<br>${(totalPeso/1000).toFixed(2)} Ton`;
 
     renderizarGrafico(dados);
     document.getElementById('relatorio').style.display = 'block';
@@ -150,23 +180,25 @@ function renderizarGrafico(dados) {
     const ctx = document.getElementById('graficoCargas').getContext('2d');
     if (meuGrafico) meuGrafico.destroy();
     meuGrafico = new Chart(ctx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
             labels: ['Estivada', 'Paletizada'],
             datasets: [{
-                label: 'Peso (KG)',
                 data: [dados.estivada.peso, dados.paletizada.peso],
-                backgroundColor: ['#28a745', '#17a2b8']
+                backgroundColor: ['#28a745', '#17a2b8'],
+                borderWidth: 0
             }]
-        }
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
     });
 }
 
 function exportarFoto() {
-    html2canvas(document.getElementById('relatorio')).then(canvas => {
+    const relatorio = document.getElementById('relatorio');
+    html2canvas(relatorio, { scale: 2 }).then(canvas => {
         const link = document.createElement('a');
-        link.download = 'relatorio_entrega.png';
-        link.href = canvas.toDataURL();
+        link.download = `Fechamento_JSL_${new Date().getTime()}.png`;
+        link.href = canvas.toDataURL("image/png");
         link.click();
     });
 }
