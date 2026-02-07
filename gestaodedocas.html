@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Docas - Painel Operacional</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
+        h1 { text-align: center; color: #1a73e8; }
+        
+        #painel-docas {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .doca {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fafafa;
+        }
+
+        .doca h3 { 
+            margin: 0 0 10px 0; 
+            background: #1a73e8; 
+            color: white; 
+            padding: 5px; 
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .campo { margin-bottom: 8px; }
+        label { font-size: 12px; font-weight: bold; display: block; color: #555; }
+        
+        input {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .conferente { background: #e8f0fe; border: 1px solid #1a73e8 !important; font-weight: bold; }
+
+        .btn-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover { background-color: #218838; }
+
+        @media print { .btn-container { display: none; } }
+    </style>
+</head>
+<body>
+
+    <h1>Controle de Equipes por Doca</h1>
+
+    <div class="btn-container">
+        <button onclick="exportarImagem()">📸 Exportar Painel como Imagem</button>
+    </div>
+
+    <div id="painel-docas">
+        </div>
+
+    <script>
+        const painel = document.getElementById('painel-docas');
+
+        // Cria as 15 docas
+        for (let i = 1; i <= 15; i++) {
+            const docaDiv = document.createElement('div');
+            docaDiv.className = 'doca';
+            
+            let html = `<h3>DOCA ${i}</h3>`;
+            html += `<div class="campo">
+                        <label>CONFERENTE:</label>
+                        <input type="text" class="conferente" placeholder="Nome do Responsável">
+                     </div>`;
+            
+            html += `<label>EQUIPE AUXILIAR:</label>`;
+            for (let j = 1; j <= 7; j++) {
+                html += `<div class="campo">
+                            <input type="text" placeholder="Auxiliar ${j}">
+                         </div>`;
+            }
+            
+            docaDiv.innerHTML = html;
+            painel.appendChild(docaDiv);
+        }
+
+        // Função para transformar a DIV em imagem PNG
+        function exportarImagem() {
+            const painel = document.getElementById('painel-docas');
+            html2canvas(painel).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'painel-docas-hoje.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+    </script>
+</body>
+</html>
