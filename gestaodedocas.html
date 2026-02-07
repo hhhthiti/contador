@@ -8,79 +8,84 @@
     <style>
         :root {
             --primary: #d32f2f; /* Vermelho JSL */
-            --secondary: #333;
-            --bg: #ffffff;
+            --bg-doca: #fdfdfd;
         }
 
         body { 
             font-family: Arial, sans-serif; 
             margin: 0;
             padding: 0;
-            background: #f4f4f4;
+            background: #e5e5e5;
         }
 
-        /* Menu fora da área da foto */
+        /* Menu de controle superior (Não sai na foto) */
         .no-print-zone {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 20px;
-            background: #fff;
-            border-bottom: 2px solid #ddd;
+            padding: 10px 20px;
+            background: #333;
+            color: white;
         }
 
         .btn {
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 12px 24px;
+            border-radius: 6px;
             text-decoration: none;
             font-weight: bold;
             cursor: pointer;
             border: none;
+            font-size: 14px;
         }
 
-        .btn-menu { background: #666; color: white; }
+        .btn-menu { background: #555; color: white; margin-right: 10px; }
         .btn-export { background: #28a745; color: white; }
 
-        /* ÁREA DA FOTO (FORMATO PAISAGEM A4) */
+        /* ÁREA DA FOTO (A4 PAISAGEM) */
         #area-captura {
-            width: 1120px; /* Largura otimizada para paisagem */
-            min-height: 790px;
-            margin: 20px auto;
+            width: 1280px; /* Largura para preencher bem o formato horizontal */
+            min-height: 800px;
+            margin: 0 auto;
             background: white;
-            padding: 20px;
+            padding: 30px;
             box-sizing: border-box;
-            position: relative;
         }
 
         .header-foto {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 4px solid var(--primary);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            border-bottom: 5px solid var(--primary);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
         }
 
-        .logo-jsl {
-            height: 60px;
-        }
+        .logo-jsl { height: 70px; }
 
         .titulo-foto {
-            font-size: 28px;
-            color: var(--secondary);
-            font-weight: bold;
+            font-size: 32px;
+            color: #222;
+            font-weight: 900;
         }
 
-        /* Grade das Docas - Organização Horizontal */
+        /* Grade das Docas */
         .grade-docas {
             display: grid;
-            grid-template-columns: repeat(4, 1fr); /* 4 colunas para preencher bem */
-            gap: 10px;
+            grid-template-columns: repeat(6, 1fr); /* 6 colunas na linha de cima */
+            gap: 12px;
+        }
+
+        /* Ajuste para a segunda linha (07 a 11) */
+        .segunda-linha {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr); 
+            gap: 12px;
         }
 
         .doca {
-            border: 2px solid #333;
-            border-radius: 4px;
+            border: 2px solid #000;
+            background: var(--bg-doca);
             display: flex;
             flex-direction: column;
         }
@@ -90,41 +95,41 @@
             color: white;
             text-align: center;
             font-weight: bold;
-            padding: 5px;
-            font-size: 18px;
+            padding: 8px;
+            font-size: 20px;
+            border-bottom: 2px solid #000;
         }
 
-        .doca-content {
-            padding: 8px;
-        }
+        .doca-content { padding: 10px; }
 
         .label-pequeno {
-            font-size: 10px;
+            font-size: 11px;
             font-weight: bold;
-            color: #555;
-            margin-bottom: 2px;
+            color: #000;
+            margin-bottom: 3px;
             display: block;
         }
 
         input {
             width: 100%;
-            border: 1px solid #ccc;
-            padding: 6px;
-            font-size: 14px;
+            border: 1px solid #999;
+            padding: 10px; /* Aumentado para melhor preenchimento manual */
+            font-size: 16px;
             box-sizing: border-box;
-            margin-bottom: 5px;
-            border-radius: 3px;
+            margin-bottom: 6px;
+            border-radius: 0; /* Estilo mais limpo para impressão */
+            outline: none;
         }
 
         .input-conferente {
-            background: #fff9c4;
-            border: 1.5px solid #fbc02d;
-            font-weight: bold;
+            background: #fff;
+            border: 2px solid #000;
+            margin-bottom: 12px;
         }
 
-        /* Ajuste específico para a última linha não ficar vazia */
-        .doca:nth-child(n+9) {
-            grid-column: span 1;
+        .espaço-equipe {
+            border-top: 1px dashed #ccc;
+            padding-top: 8px;
         }
 
     </style>
@@ -132,61 +137,74 @@
 <body>
 
     <div class="no-print-zone">
-        <a href="https://feraamentas.netlify.app" class="btn btn-menu">⬅ Voltar ao Menu</a>
-        <button class="btn btn-export" onclick="exportarImagem()">📸 Gerar Imagem para Exportação</button>
+        <div>
+            <a href="https://feraamentas.netlify.app" class="btn btn-menu">⬅ VOLTAR AO MENU</a>
+        </div>
+        <button class="btn btn-export" onclick="exportarImagem()">📸 GERAR IMAGEM PARA EXPORTAÇÃO</button>
     </div>
 
     <div id="area-captura">
         <div class="header-foto">
-            <img src="icons/JSL.png" alt="JSL Logo" class="logo-jsl" onerror="this.style.display='none'">
-            <div class="titulo-foto">EQUIPES OPERACIONAIS - DOCAS 01 A 11</div>
-            <div id="data-atual" style="font-weight: bold;"></div>
+            <img src="icons/JSL.png" alt="JSL Logo" class="logo-jsl" onerror="this.src='https://via.placeholder.com/150x70?text=JSL+LOGO'">
+            <div class="titulo-foto">EQUIPES OPERACIONAIS</div>
+            <div id="data-atual" style="font-size: 20px; font-weight: bold;"></div>
         </div>
 
-        <div class="grade-docas" id="container-docas">
-            </div>
+        <div class="grade-docas" id="linha-1"></div>
+
+        <div class="segunda-linha" id="linha-2"></div>
     </div>
 
     <script>
-        // Setar data
-        const d = new Date();
-        document.getElementById('data-atual').innerText = d.toLocaleDateString();
+        document.getElementById('data-atual').innerText = new Date().toLocaleDateString();
 
-        const container = document.getElementById('container-docas');
-
-        // Gerar 11 Docas
-        for (let i = 1; i <= 11; i++) {
-            const docaNum = i < 10 ? '0' + i : i;
+        function criarDoca(numero) {
+            const numStr = numero < 10 ? '0' + numero : numero;
             const div = document.createElement('div');
             div.className = 'doca';
             
-            let inputsAuxiliares = '';
-            for (let j = 1; j <= 6; j++) {
-                inputsAuxiliares += `<input type="text" placeholder="Auxiliar ${j}">`;
-            }
-
-            div.innerHTML = `
-                <div class="doca-header">DOCA ${docaNum}</div>
+            let html = `
+                <div class="doca-header">DOCA ${numStr}</div>
                 <div class="doca-content">
-                    <span class="label-pequeno">CONFERENTE</span>
-                    <input type="text" class="input-conferente" placeholder="Nome do Responsável">
-                    <span class="label-pequeno">EQUIPE</span>
-                    ${inputsAuxiliares}
+                    <span class="label-pequeno">CONFERENTE:</span>
+                    <input type="text" class="input-conferente">
+                    
+                    <span class="label-pequeno">EQUIPE AUXILIAR:</span>
+                    <div class="espaço-equipe">
+                        <input type="text">
+                        <input type="text">
+                        <input type="text">
+                        <input type="text">
+                        <input type="text">
+                        <input type="text">
+                    </div>
                 </div>
             `;
-            container.appendChild(div);
+            div.innerHTML = html;
+            return div;
+        }
+
+        const linha1 = document.getElementById('linha-1');
+        const linha2 = document.getElementById('linha-2');
+
+        // Adiciona 01 a 06 na primeira linha
+        for (let i = 1; i <= 6; i++) {
+            linha1.appendChild(criarDoca(i));
+        }
+
+        // Adiciona 07 a 11 na segunda linha
+        for (let i = 7; i <= 11; i++) {
+            linha2.appendChild(criarDoca(i));
         }
 
         function exportarImagem() {
             const captura = document.getElementById('area-captura');
-            
             html2canvas(captura, {
-                scale: 2, // Alta qualidade
-                useCORS: true, // Permite carregar a imagem da logo se estiver em outro domínio
-                logging: true
+                scale: 2,
+                useCORS: true
             }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `CONTRÔLE_DOCAS_${d.toLocaleDateString()}.png`;
+                link.download = `Status_Docas_JSL.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             });
