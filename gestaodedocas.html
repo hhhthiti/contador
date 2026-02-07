@@ -3,166 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Docas 1-11</title>
+    <title>Painel de Docas JSL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
-            --primary: #004a99;
-            --accent: #28a745;
-            --bg: #e9ecef;
+            --primary: #d32f2f; /* Vermelho JSL */
+            --secondary: #333;
+            --bg: #ffffff;
         }
 
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: var(--bg); 
+            font-family: Arial, sans-serif; 
             margin: 0;
-            padding: 20px; 
+            padding: 0;
+            background: #f4f4f4;
         }
 
-        /* Menu Superior */
-        .nav-bar {
+        /* Menu fora da área da foto */
+        .no-print-zone {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            background: white;
-            padding: 15px 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 15px 20px;
+            background: #fff;
+            border-bottom: 2px solid #ddd;
         }
 
-        .btn-menu {
-            text-decoration: none;
-            background: #6c757d;
-            color: white;
-            padding: 10px 18px;
-            border-radius: 5px;
-            font-weight: bold;
-            transition: 0.3s;
-        }
-
-        .btn-export {
-            background: var(--accent);
-            color: white;
-            border: none;
+        .btn {
             padding: 10px 20px;
             border-radius: 5px;
-            font-size: 16px;
+            text-decoration: none;
             font-weight: bold;
             cursor: pointer;
-            transition: 0.3s;
+            border: none;
         }
 
-        .btn-menu:hover { background: #495057; }
-        .btn-export:hover { background: #218838; scale: 1.05; }
+        .btn-menu { background: #666; color: white; }
+        .btn-export { background: #28a745; color: white; }
 
-        /* Grade de Docas */
-        #painel-docas {
+        /* ÁREA DA FOTO (FORMATO PAISAGEM A4) */
+        #area-captura {
+            width: 1120px; /* Largura otimizada para paisagem */
+            min-height: 790px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .header-foto {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--primary);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .logo-jsl {
+            height: 60px;
+        }
+
+        .titulo-foto {
+            font-size: 28px;
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        /* Grade das Docas - Organização Horizontal */
+        .grade-docas {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 20px;
-            padding: 10px;
+            grid-template-columns: repeat(4, 1fr); /* 4 colunas para preencher bem */
+            gap: 10px;
         }
 
         .doca {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-            border: 1px solid #dee2e6;
+            border: 2px solid #333;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
         }
 
         .doca-header {
             background: var(--primary);
             color: white;
-            padding: 15px;
             text-align: center;
-            font-size: 1.5rem;
             font-weight: bold;
+            padding: 5px;
+            font-size: 18px;
         }
 
-        .doca-body { padding: 20px; }
+        .doca-content {
+            padding: 8px;
+        }
 
-        .campo { margin-bottom: 12px; }
-        
-        label { 
-            font-size: 13px; 
-            font-weight: 700; 
-            color: #333; 
-            text-transform: uppercase;
+        .label-pequeno {
+            font-size: 10px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 2px;
             display: block;
-            margin-bottom: 5px;
         }
 
         input {
             width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 2px solid #ced4da;
-            border-radius: 6px;
+            border: 1px solid #ccc;
+            padding: 6px;
+            font-size: 14px;
             box-sizing: border-box;
-            outline: none;
+            margin-bottom: 5px;
+            border-radius: 3px;
         }
 
-        input:focus { border-color: var(--primary); }
-
-        .conferente-input {
-            background: #fff9db;
-            border-color: #f1c40f;
+        .input-conferente {
+            background: #fff9c4;
+            border: 1.5px solid #fbc02d;
             font-weight: bold;
         }
 
-        @media print {
-            .nav-bar { display: none; }
+        /* Ajuste específico para a última linha não ficar vazia */
+        .doca:nth-child(n+9) {
+            grid-column: span 1;
         }
+
     </style>
 </head>
 <body>
 
-    <div class="nav-bar">
-        <a href="https://feraamentas.netlify.app" class="btn-menu">⬅ Voltar ao Menu</a>
-        <h2 style="margin:0; color: var(--primary);">CONTROLE OPERACIONAL DE DOCAS</h2>
-        <button class="btn-export" onclick="exportarImagem()">📸 Gerar Foto do Painel</button>
+    <div class="no-print-zone">
+        <a href="https://feraamentas.netlify.app" class="btn btn-menu">⬅ Voltar ao Menu</a>
+        <button class="btn btn-export" onclick="exportarImagem()">📸 Gerar Imagem para Exportação</button>
     </div>
 
-    <div id="painel-docas">
+    <div id="area-captura">
+        <div class="header-foto">
+            <img src="icons/JSL.png" alt="JSL Logo" class="logo-jsl" onerror="this.style.display='none'">
+            <div class="titulo-foto">EQUIPES OPERACIONAIS - DOCAS 01 A 11</div>
+            <div id="data-atual" style="font-weight: bold;"></div>
         </div>
 
-    <script>
-        const painel = document.getElementById('painel-docas');
+        <div class="grade-docas" id="container-docas">
+            </div>
+    </div>
 
+    <script>
+        // Setar data
+        const d = new Date();
+        document.getElementById('data-atual').innerText = d.toLocaleDateString();
+
+        const container = document.getElementById('container-docas');
+
+        // Gerar 11 Docas
         for (let i = 1; i <= 11; i++) {
-            const docaDiv = document.createElement('div');
-            docaDiv.className = 'doca';
+            const docaNum = i < 10 ? '0' + i : i;
+            const div = document.createElement('div');
+            div.className = 'doca';
             
-            let html = `<div class="doca-header">DOCA ${i}</div>`;
-            html += `<div class="doca-body">
-                        <div class="campo">
-                            <label>⭐ Conferente Responsável</label>
-                            <input type="text" class="conferente-input" placeholder="Nome Completo">
-                        </div>
-                        <label>👥 Equipe Auxiliar</label>`;
-            
+            let inputsAuxiliares = '';
             for (let j = 1; j <= 6; j++) {
-                html += `<div class="campo">
-                            <input type="text" placeholder="Auxiliar ${j}">
-                         </div>`;
+                inputsAuxiliares += `<input type="text" placeholder="Auxiliar ${j}">`;
             }
-            
-            html += `</div>`;
-            docaDiv.innerHTML = html;
-            painel.appendChild(docaDiv);
+
+            div.innerHTML = `
+                <div class="doca-header">DOCA ${docaNum}</div>
+                <div class="doca-content">
+                    <span class="label-pequeno">CONFERENTE</span>
+                    <input type="text" class="input-conferente" placeholder="Nome do Responsável">
+                    <span class="label-pequeno">EQUIPE</span>
+                    ${inputsAuxiliares}
+                </div>
+            `;
+            container.appendChild(div);
         }
 
         function exportarImagem() {
-            const painelDocas = document.getElementById('painel-docas');
-            // Removemos temporariamente o padding para a foto ficar justa
-            html2canvas(painelDocas, {
-                backgroundColor: "#e9ecef",
-                scale: 2 // Aumenta a qualidade da foto
+            const captura = document.getElementById('area-captura');
+            
+            html2canvas(captura, {
+                scale: 2, // Alta qualidade
+                useCORS: true, // Permite carregar a imagem da logo se estiver em outro domínio
+                logging: true
             }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = 'Status_Docas_1-11.png';
+                link.download = `CONTRÔLE_DOCAS_${d.toLocaleDateString()}.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
             });
