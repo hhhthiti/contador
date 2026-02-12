@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório Unificado JSL</title>
+    <title>Relatório de Operação JSL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 750px; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 700px; }
         .upload-area { border: 2px dashed #ed1c24; background: #fff5f5; padding: 20px; border-radius: 10px; text-align: center; cursor: pointer; margin-bottom: 10px; }
-        textarea { width: 100%; height: 150px; margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; box-sizing: border-box; }
+        textarea { width: 100%; height: 150px; margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; }
         .btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         button { border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
         .btn-green { background: #28a745; }
@@ -21,24 +21,23 @@
         .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
         
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background: #343a40; color: white; padding: 10px; font-size: 12px; text-transform: uppercase; }
-        td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 13px; }
+        th { background: #343a40; color: white; padding: 10px; font-size: 13px; text-transform: uppercase; }
+        td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 14px; }
         tr:nth-child(even) { background-color: #f8f9fa; }
 
-        .resumo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; margin-bottom: 20px; }
-        .card { padding: 15px; border-radius: 8px; color: white; text-align: center; }
+        .resumo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; }
         .paletizada { background: #17a2b8; }
         .granel { background: #28a745; }
         .total-card { background: #ed1c24; }
         
-        .charts-container { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-        .chart-box { flex: 1; min-width: 300px; }
+        .chart-box { max-width: 400px; margin: 0 auto; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento Unificado JSL</h2>
+    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Cargas</h2>
     
     <div class="upload-area" onclick="document.getElementById('fotoInput').click()">
         <strong>📸 Tirar Foto ou Subir Imagem</strong>
@@ -46,10 +45,12 @@
         <div id="status" style="color: #ed1c24; margin-top: 10px; font-weight: bold;"></div>
     </div>
 
-    <textarea id="inputDados" placeholder="DT TIPO CONFERENTE (Ex: 22594101 PALETIZADA WEMERSON)"></textarea>
+    <textarea id="inputDados" placeholder="Cole os dados aqui. Ex:
+22594101 PALETIZADA
+22599362 GRANEL"></textarea>
 
     <div class="btns">
-        <button class="btn-green" onclick="processarDados()">📊 Gerar Relatórios</button>
+        <button class="btn-green" onclick="processarDados()">📊 Gerar Relatório</button>
         <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📲 Salvar Imagem</button>
     </div>
 </div>
@@ -58,7 +59,7 @@
     <div class="header-relatorio">
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png" height="50">
         <div style="text-align: right;">
-            <h3 style="margin:0; color: #ed1c24;">RESUMO DE CARREGAMENTO</h3>
+            <h3 style="margin:0; color: #ed1c24;">FECHAMENTO DE EXPEDIÇÃO</h3>
             <small id="dataAtual"></small>
         </div>
     </div>
@@ -70,18 +71,15 @@
     </div>
 
     <div id="tabelaResultado"></div>
-    <div id="tabelaConferentes"></div>
 
-    <div class="charts-container">
-        <div class="chart-box"><canvas id="graficoPeso"></canvas></div>
-        <div class="chart-box"><canvas id="graficoQtd"></canvas></div>
+    <div class="chart-box">
+        <h4 style="text-align:center">Divisão por Tipo de Carga</h4>
+        <canvas id="graficoQtd"></canvas>
     </div>
 </div>
 
 <script>
-let chartP = null;
 let chartQ = null;
-
 document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('pt-BR');
 
 document.getElementById('fotoInput').addEventListener('change', function(e) {
@@ -99,85 +97,68 @@ function processarDados() {
     const linhas = texto.split('\n');
     
     let cargas = [];
-    let conferentes = {};
-    let resumo = { paletizada: { qtd: 0 }, granel: { qtd: 0 } };
+    let resumo = { paletizada: 0, granel: 0 };
 
     linhas.forEach(linha => {
         let l = linha.toUpperCase().trim();
         if (l.length < 5) return;
 
-        // Tenta separar DT, TIPO e CONFERENTE
-        // Lógica: Primeiro item é DT, se o resto contém "PAL" é Paletizada, senão Granel.
         let partes = l.split(/\s+/);
         let dt = partes[0];
+        
+        // Lógica de Identificação Corrigida
         let tipo = l.includes("PAL") ? "PALETIZADA" : "GRANEL";
         
-        // Pega o resto da linha como nome do conferente
-        let conferenteTexto = l.replace(dt, "").replace("PALETIZADA", "").replace("GRANEL", "").trim();
-        
-        cargas.push({ dt, tipo, conferente: conferenteTexto });
+        cargas.push({ dt, tipo });
 
-        // Contagem para o resumo
-        if (tipo === "PALETIZADA") resumo.paletizada.qtd++;
-        else resumo.granel.qtd++;
-
-        // Lógica 0.5 para conferentes parceiros
-        let nomes = conferenteTexto.split("/");
-        let valorCarga = 1 / nomes.length;
-        nomes.forEach(n => {
-            let nome = n.trim();
-            if (nome) conferentes[nome] = (conferentes[nome] || 0) + valorCarga;
-        });
+        if (tipo === "PALETIZADA") resumo.paletizada++;
+        else resumo.granel++;
     });
 
     // --- ORDENAR: PALETIZADA PRIMEIRO ---
     cargas.sort((a, b) => a.tipo.localeCompare(b.tipo) * -1);
 
-    // Gerar Tabela Detalhada
-    let html = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>CONFERENTE</th></tr></thead><tbody>';
+    // Gerar Tabela
+    let html = '<table><thead><tr><th>Nº DT</th><th>TIPO DE CARGA</th></tr></thead><tbody>';
     cargas.forEach(c => {
-        html += `<tr><td>${c.dt}</td><td>${c.tipo}</td><td>${c.conferente}</td></tr>`;
+        html += `<tr><td>${c.dt}</td><td><b>${c.tipo}</b></td></tr>`;
     });
     document.getElementById('tabelaResultado').innerHTML = html + '</tbody></table>';
 
-    // Gerar Tabela Produtividade
-    let htmlC = '<h4>🏆 Produtividade Conferentes</h4><table><thead><tr><th>Conferente</th><th>Cargas</th></tr></thead><tbody>';
-    for (let c in conferentes) {
-        htmlC += `<tr><td>${c}</td><td>${conferentes[c].toFixed(1)}</td></tr>`;
-    }
-    document.getElementById('tabelaConferentes').innerHTML = htmlC + '</tbody></table>';
-
     // Atualizar Cards
-    document.getElementById('cardP').innerHTML = `<b>PALETIZADA</b><br>${resumo.paletizada.qtd} Carros`;
-    document.getElementById('cardG').innerHTML = `<b>GRANEL</b><br>${resumo.granel.qtd} Carros`;
-    document.getElementById('cardT').innerHTML = `<b>TOTAL</b><br>${resumo.paletizada.qtd + resumo.granel.qtd} Veículos`;
+    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada}`;
+    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel}`;
+    document.getElementById('cardT').innerHTML = `TOTAL<br>${resumo.paletizada + resumo.granel}`;
 
-    renderizarGraficos(resumo);
+    renderizarGrafico(resumo);
     document.getElementById('relatorio').style.display = 'block';
     document.getElementById('btnExport').style.display = 'inline-block';
 }
 
-function renderizarGraficos(resumo) {
-    const ctxQ = document.getElementById('graficoQtd').getContext('2d');
+function renderizarGrafico(resumo) {
+    const ctx = document.getElementById('graficoQtd').getContext('2d');
     if (chartQ) chartQ.destroy();
-    chartQ = new Chart(ctxQ, {
-        type: 'bar',
+    chartQ = new Chart(ctx, {
+        type: 'pie',
         data: {
             labels: ['Paletizada', 'Granel'],
             datasets: [{
-                label: 'Quantidade de Cargas',
-                data: [resumo.paletizada.qtd, resumo.granel.qtd],
+                data: [resumo.paletizada, resumo.granel],
                 backgroundColor: ['#17a2b8', '#28a745']
             }]
         },
-        options: { plugins: { legend: { display: false } } }
+        options: {
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
     });
 }
 
 function exportarFoto() {
     html2canvas(document.getElementById('relatorio'), { scale: 2 }).then(canvas => {
         const link = document.createElement('a');
-        link.download = `Fechamento_JSL.png`;
+        link.download = `Fechamento_Cargas_JSL.png`;
         link.href = canvas.toDataURL();
         link.click();
     });
