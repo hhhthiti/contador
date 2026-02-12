@@ -74,7 +74,6 @@ document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('
 
 function extrairPeso(texto) {
     let partes = texto.trim().split(/\s+/);
-    // Pega o último item e limpa tudo que não for número
     let ultimo = partes[partes.length - 1].replace(/[^\d]/g, '');
     return parseFloat(ultimo) || 0;
 }
@@ -107,10 +106,8 @@ function processarDados() {
         }
     });
 
-    // ORDENAR: PALETIZADA PRIMEIRO
     cargas.sort((a, b) => a.tipo.localeCompare(b.tipo) * -1);
 
-    // Gerar Tabela (Apenas uma coluna de Peso em Toneladas)
     let html = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>TONELADAS (TON)</th></tr></thead><tbody>';
     cargas.forEach(c => {
         html += `<tr>
@@ -121,14 +118,16 @@ function processarDados() {
     });
     document.getElementById('tabelaResultado').innerHTML = html + '</tbody></table>';
 
-    // Atualizar Cards
-    let tonP = (resumo.paletizada.peso / 1000).toFixed(1);
-    let tonG = (resumo.granel.peso / 1000).toFixed(1);
+    // CÁLCULOS DOS TOTAIS
+    let tonP = resumo.paletizada.peso / 1000;
+    let tonG = resumo.granel.peso / 1000;
     let totalCargas = resumo.paletizada.qtd + resumo.granel.qtd;
+    let totalToneladas = tonP + tonG;
 
-    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros / ${tonP} Ton`;
-    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros / ${tonG} Ton`;
-    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${totalCargas} Veículos`;
+    // ATUALIZAÇÃO DOS CARDS
+    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros<br>${tonP.toFixed(1)} Ton`;
+    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros<br>${tonG.toFixed(1)} Ton`;
+    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${totalCargas} Veículos<br>${totalToneladas.toFixed(1)} Ton`;
 
     renderizarGrafico(resumo);
     document.getElementById('relatorio').style.display = 'block';
@@ -144,7 +143,7 @@ function renderizarGrafico(resumo) {
         data: {
             labels: ['Paletizada', 'Granel'],
             datasets: [{
-                label: 'Toneladas Carregadas',
+                label: 'Toneladas',
                 data: [(resumo.paletizada.peso/1000), (resumo.granel.peso/1000)],
                 backgroundColor: ['#17a2b8', '#28a745'],
                 borderWidth: 1
