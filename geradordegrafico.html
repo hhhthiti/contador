@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório de Operação JSL</title>
+    <title>Relatório de Tonelagem JSL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 700px; }
-        .upload-area { border: 2px dashed #ed1c24; background: #fff5f5; padding: 20px; border-radius: 10px; text-align: center; cursor: pointer; margin-bottom: 10px; }
-        textarea { width: 100%; height: 150px; margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; }
+        textarea { width: 100%; height: 150px; margin: 15px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; }
         .btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         button { border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
         .btn-green { background: #28a745; }
@@ -21,7 +19,7 @@
         .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
         
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background: #343a40; color: white; padding: 10px; font-size: 13px; text-transform: uppercase; }
+        th { background: #343a40; color: white; padding: 10px; font-size: 13px; }
         td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 14px; }
         tr:nth-child(even) { background-color: #f8f9fa; }
 
@@ -31,27 +29,22 @@
         .granel { background: #28a745; }
         .total-card { background: #ed1c24; }
         
-        .chart-box { max-width: 400px; margin: 0 auto; }
+        .chart-box { max-width: 450px; margin: 0 auto; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Cargas</h2>
+    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Tonelagem</h2>
     
-    <div class="upload-area" onclick="document.getElementById('fotoInput').click()">
-        <strong>📸 Tirar Foto ou Subir Imagem</strong>
-        <input type="file" id="fotoInput" accept="image/*" style="display:none">
-        <div id="status" style="color: #ed1c24; margin-top: 10px; font-weight: bold;"></div>
-    </div>
-
-    <textarea id="inputDados" placeholder="Cole os dados aqui. Ex:
-22594101 PALETIZADA
-22599362 GRANEL"></textarea>
+    <p style="font-size: 12px; color: #666; text-align: center;">Cole os dados no formato: DT TIPO PESO</p>
+    <textarea id="inputDados" placeholder="Exemplo:
+22594101 PALETIZADA 25500
+22599362 GRANEL 14200"></textarea>
 
     <div class="btns">
         <button class="btn-green" onclick="processarDados()">📊 Gerar Relatório</button>
-        <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📲 Salvar Imagem</button>
+        <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📸 Salvar Imagem</button>
     </div>
 </div>
 
@@ -59,7 +52,7 @@
     <div class="header-relatorio">
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png" height="50">
         <div style="text-align: right;">
-            <h3 style="margin:0; color: #ed1c24;">FECHAMENTO DE EXPEDIÇÃO</h3>
+            <h3 style="margin:0; color: #ed1c24;">RESUMO DE EXPEDIÇÃO</h3>
             <small id="dataAtual"></small>
         </div>
     </div>
@@ -73,62 +66,80 @@
     <div id="tabelaResultado"></div>
 
     <div class="chart-box">
-        <h4 style="text-align:center">Divisão por Tipo de Carga</h4>
-        <canvas id="graficoQtd"></canvas>
+        <h4 style="text-align:center">Toneladas por Tipo (Ton)</h4>
+        <canvas id="graficoPeso"></canvas>
     </div>
 </div>
 
 <script>
-let chartQ = null;
+let chartW = null;
 document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('pt-BR');
 
-document.getElementById('fotoInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    document.getElementById('status').innerText = "⏳ Lendo...";
-    Tesseract.recognize(file, 'por').then(({ data: { text } }) => {
-        document.getElementById('inputDados').value = text;
-        document.getElementById('status').innerText = "✅ Pronto!";
-    });
-});
+function extrairPeso(texto) {
+    // Procura por números que tenham mais de 3 dígitos (provavelmente o peso em KG)
+    let matches = texto.match(/\d{4,}/g);
+    if (matches && matches.length > 1) {
+        // Se houver dois números longos, o primeiro costuma ser a DT, o segundo o Peso
+        return parseFloat(matches[matches.length - 1]) || 0;
+    }
+    // Se não achar padrão, tenta pegar o último bloco de números da linha
+    let partes = texto.trim().split(/\s+/);
+    let ultimo = partes[partes.length - 1].replace(/[^\d]/g, '');
+    return parseFloat(ultimo) || 0;
+}
 
 function processarDados() {
     const texto = document.getElementById('inputDados').value.trim();
     const linhas = texto.split('\n');
     
     let cargas = [];
-    let resumo = { paletizada: 0, granel: 0 };
+    let resumo = { 
+        paletizada: { qtd: 0, peso: 0 }, 
+        granel: { qtd: 0, peso: 0 } 
+    };
 
     linhas.forEach(linha => {
         let l = linha.toUpperCase().trim();
         if (l.length < 5) return;
 
-        let partes = l.split(/\s+/);
-        let dt = partes[0];
-        
-        // Lógica de Identificação Corrigida
+        let dt = l.split(/\s+/)[0];
+        let pesoKg = extrairPeso(l);
         let tipo = l.includes("PAL") ? "PALETIZADA" : "GRANEL";
         
-        cargas.push({ dt, tipo });
+        cargas.push({ dt, tipo, peso: pesoKg });
 
-        if (tipo === "PALETIZADA") resumo.paletizada++;
-        else resumo.granel++;
+        if (tipo === "PALETIZADA") {
+            resumo.paletizada.qtd++;
+            resumo.paletizada.peso += pesoKg;
+        } else {
+            resumo.granel.qtd++;
+            resumo.granel.peso += pesoKg;
+        }
     });
 
-    // --- ORDENAR: PALETIZADA PRIMEIRO ---
+    // ORDENAR: PALETIZADA PRIMEIRO
     cargas.sort((a, b) => a.tipo.localeCompare(b.tipo) * -1);
 
     // Gerar Tabela
-    let html = '<table><thead><tr><th>Nº DT</th><th>TIPO DE CARGA</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>PESO (KG)</th><th>TONS</th></tr></thead><tbody>';
     cargas.forEach(c => {
-        html += `<tr><td>${c.dt}</td><td><b>${c.tipo}</b></td></tr>`;
+        html += `<tr>
+            <td>${c.dt}</td>
+            <td><b>${c.tipo}</b></td>
+            <td>${c.peso.toLocaleString('pt-BR')}</td>
+            <td>${(c.peso/1000).toFixed(2)}</td>
+        </tr>`;
     });
     document.getElementById('tabelaResultado').innerHTML = html + '</tbody></table>';
 
-    // Atualizar Cards
-    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada}`;
-    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel}`;
-    document.getElementById('cardT').innerHTML = `TOTAL<br>${resumo.paletizada + resumo.granel}`;
+    // Atualizar Cards com Toneladas
+    let tonP = (resumo.paletizada.peso / 1000).toFixed(1);
+    let tonG = (resumo.granel.peso / 1000).toFixed(1);
+    let tonTotal = (parseFloat(tonP) + parseFloat(tonG)).toFixed(1);
+
+    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros<br>${tonP} Ton`;
+    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros<br>${tonG} Ton`;
+    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${resumo.paletizada.qtd + resumo.granel.qtd} Veículos<br>${tonTotal} Ton`;
 
     renderizarGrafico(resumo);
     document.getElementById('relatorio').style.display = 'block';
@@ -136,29 +147,25 @@ function processarDados() {
 }
 
 function renderizarGrafico(resumo) {
-    const ctx = document.getElementById('graficoQtd').getContext('2d');
-    if (chartQ) chartQ.destroy();
-    chartQ = new Chart(ctx, {
-        type: 'pie',
+    const ctx = document.getElementById('graficoPeso').getContext('2d');
+    if (chartW) chartW.destroy();
+    chartW = new Chart(ctx, {
+        type: 'doughnut',
         data: {
-            labels: ['Paletizada', 'Granel'],
+            labels: ['Paletizada (Ton)', 'Granel (Ton)'],
             datasets: [{
-                data: [resumo.paletizada, resumo.granel],
+                data: [(resumo.paletizada.peso/1000), (resumo.granel.peso/1000)],
                 backgroundColor: ['#17a2b8', '#28a745']
             }]
         },
-        options: {
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
+        options: { plugins: { legend: { position: 'bottom' } } }
     });
 }
 
 function exportarFoto() {
     html2canvas(document.getElementById('relatorio'), { scale: 2 }).then(canvas => {
         const link = document.createElement('a');
-        link.download = `Fechamento_Cargas_JSL.png`;
+        link.download = `Fechamento_JSL_Toneladas.png`;
         link.href = canvas.toDataURL();
         link.click();
     });
