@@ -3,128 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Expedição JSL</title>
+    <title>Relatório Unificado JSL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 850px; }
-        h2, h3 { color: #ed1c24; text-align: center; }
-        
-        textarea { width: 100%; height: 150px; margin: 15px 0; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-family: monospace; }
-        
+        body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 800px; }
+        .upload-area { border: 2px dashed #ed1c24; background: #fff5f5; padding: 20px; border-radius: 10px; text-align: center; cursor: pointer; margin-bottom: 10px; }
+        textarea { width: 100%; height: 150px; margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; box-sizing: border-box; }
         .btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
-        button { border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
-        .btn-process { background: #28a745; }
-        .btn-export { background: #0056b3; }
-        button:hover { opacity: 0.8; transform: translateY(-2px); }
-
-        #relatorio-final { background: white; padding: 20px; width: 100%; max-width: 900px; display: none; }
+        button { border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-green { background: #28a745; }
+        .btn-blue { background: #0056b3; }
         
-        .secao-tabela { margin-top: 30px; border-top: 2px solid #ed1c24; padding-top: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th { background: #ed1c24; color: white; padding: 12px; font-size: 14px; }
-        td { border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
+        /* Relatório Estilizado */
+        #relatorio { background: white; padding: 30px; border-radius: 5px; margin-top: 20px; width: 100%; max-width: 850px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #343a40; color: white; padding: 10px; font-size: 12px; }
+        td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 13px; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
         
-        .grid-resumo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-        .card-conferente { background: #fff; border-left: 5px solid #ed1c24; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; justify-content: space-between; }
+        .resumo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-size: 14px; }
+        .paletizada-card { background: #17a2b8; }
+        .granel-card { background: #28a745; }
+        .total-card { background: #ed1c24; }
+        
+        .charts-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .chart-box { flex: 1; min-width: 300px; max-width: 400px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📊 Entrada de Dados de Carga</h2>
-    <p style="text-align: center; font-size: 0.9em; color: #666;">Cole os dados abaixo no formato: <b>DT TIPO CONFERENTE</b></p>
+    <h2 style="text-align:center; color: #ed1c24;">📊 Sistema Unificado de Expedição</h2>
     
-    <textarea id="inputDados" placeholder="Exemplo:
-DT450012 Estivada João_Silva
-DT450013 Paletizada Maria_Souza
-DT450014 Estivada João_Silva"></textarea>
+    <div class="upload-area" onclick="document.getElementById('fotoInput').click()">
+        <strong>📸 Tirar Foto ou Subir Planilha</strong>
+        <input type="file" id="fotoInput" accept="image/*" style="display:none">
+        <div id="status" style="color: #ed1c24; margin-top: 10px; font-weight: bold;"></div>
+    </div>
+
+    <textarea id="inputDados" placeholder="Cole os dados ou use a foto. Formato: DT TIPO PESO CONFERENTE"></textarea>
 
     <div class="btns">
-        <button class="btn-process" onclick="gerarRelatorios()">📊 Gerar Planilhas</button>
-        <button id="btnExport" class="btn-export" onclick="exportarRelatorio()" style="display:none">📸 Salvar como Imagem</button>
+        <button class="btn-green" onclick="processarDados()">📊 Gerar Fechamento</button>
+        <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📲 Salvar Imagem</button>
     </div>
 </div>
 
-<div id="relatorio-final">
-    <div style="text-align: center; margin-bottom: 20px;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png" width="120">
-        <h3>FECHAMENTO DE EXPEDIÇÃO</h3>
-        <p id="dataHoje"></p>
+<div id="relatorio">
+    <div class="header-relatorio">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png" height="50">
+        <div style="text-align: right;">
+            <h3 style="margin:0; color: #ed1c24;">FECHAMENTO DE CARREGAMENTO</h3>
+            <small id="dataAtual"></small>
+        </div>
     </div>
 
-    <div class="secao-tabela">
-        <h3>🏆 1. PRODUTIVIDADE POR CONFERENTE</h3>
-        <div id="tabelaProdutividade"></div>
+    <div class="resumo-grid">
+        <div class="card paletizada-card" id="cardP"></div>
+        <div class="card granel-card" id="cardG"></div>
+        <div class="card total-card" id="cardT"></div>
     </div>
 
-    <div class="secao-tabela">
-        <h3>📋 2. DETALHAMENTO DAS DT'S</h3>
-        <div id="tabelaDetalhada"></div>
+    <div id="tabelaResultado"></div>
+    <div id="tabelaConferentes"></div>
+
+    <div class="charts-container">
+        <div class="chart-box">
+            <h4 style="text-align:center">Distribuição por Peso (kg)</h4>
+            <canvas id="graficoPeso"></canvas>
+        </div>
+        <div class="chart-box">
+            <h4 style="text-align:center">Qtd de Cargas por Tipo</h4>
+            <canvas id="graficoQtd"></canvas>
+        </div>
     </div>
 </div>
 
 <script>
-function gerarRelatorios() {
-    const texto = document.getElementById('inputDados').value.trim();
-    if (!texto) return alert("Por favor, insira os dados!");
+let chartPeso = null;
+let chartQtd = null;
 
+document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('pt-BR');
+
+document.getElementById('fotoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('status').innerText = "⏳ Lendo imagem...";
+    Tesseract.recognize(file, 'por').then(({ data: { text } }) => {
+        document.getElementById('inputDados').value = text;
+        document.getElementById('status').innerText = "✅ Concluído!";
+    });
+});
+
+function limparPeso(texto) {
+    if (!texto) return 0;
+    let limpo = texto.replace(/[^\d.,]/g, '').replace(',', '.');
+    return parseFloat(limpo) || 0;
+}
+
+function processarDados() {
+    const texto = document.getElementById('inputDados').value.trim();
     const linhas = texto.split('\n');
-    let listaCargas = [];
-    let contagemConferentes = {};
+    
+    let dadosCargas = [];
+    let conferentesProd = {};
+    let resumo = { 
+        paletizada: { qtd: 0, peso: 0 }, 
+        granel: { qtd: 0, peso: 0 } 
+    };
 
     linhas.forEach(linha => {
-        // Divide a linha por espaços ou tabs
-        let partes = linha.split(/\s+/);
-        if (partes.length >= 3) {
-            let dt = partes[0];
-            let tipo = partes[1];
-            let conferente = partes.slice(2).join(" "); // Pega o resto do nome se houver espaços
+        let l = linha.toUpperCase();
+        if (l.length < 5 || l.includes("SOMA")) return;
 
-            // Salva na lista detalhada
-            listaCargas.push({ dt, tipo, conferente });
+        let partes = l.split(/\s+/);
+        let dt = partes[0];
+        let peso = limparPeso(partes[2]);
+        let conferenteRaw = partes.slice(3).join(" ") || "N/I";
+        
+        // Identificar Tipo
+        let tipo = (l.includes("PAL") || l.includes("PLT")) ? "PALETIZADA" : "GRANEL";
 
-            // Conta para a produtividade
-            contagemConferentes[conferente] = (contagemConferentes[conferente] || 0) + 1;
+        // Lógica de Conferentes Parceiros (Wemerson/Bruno)
+        let nomes = conferenteRaw.split(/[\/\-&]/); // Divide por /, - ou &
+        let pesoPorConferente = 1 / nomes.length;
+
+        nomes.forEach(nome => {
+            let n = nome.trim();
+            if(n) conferentesProd[n] = (conferentesProd[n] || 0) + pesoPorConferente;
+        });
+
+        dadosCargas.push({ dt, tipo, peso, conferente: conferenteRaw });
+
+        if (tipo === "PALETIZADA") {
+            resumo.paletizada.qtd++;
+            resumo.paletizada.peso += peso;
+        } else {
+            resumo.granel.qtd++;
+            resumo.granel.peso += peso;
         }
     });
 
-    if (listaCargas.length === 0) return alert("Formato inválido! Use: DT TIPO CONFERENTE");
+    // --- ORDENAR: PALETIZADAS PRIMEIRO ---
+    dadosCargas.sort((a, b) => a.tipo.localeCompare(b.tipo) * -1);
 
-    // --- CONSTRUIR TABELA 1 (PRODUTIVIDADE) ---
-    let htmlProd = '<table><thead><tr><th>Conferente</th><th>Total de Cargas</th></tr></thead><tbody>';
-    for (let conf in contagemConferentes) {
-        htmlProd += `<tr><td><b>${conf}</b></td><td>${contagemConferentes[conf]}</td></tr>`;
-    }
-    htmlProd += '</tbody></table>';
-    document.getElementById('tabelaProdutividade').innerHTML = htmlProd;
-
-    // --- CONSTRUIR TABELA 2 (DETALHADA) ---
-    let htmlDet = '<table><thead><tr><th>Nº DT</th><th>Tipo de Carga</th><th>Conferente</th></tr></thead><tbody>';
-    listaCargas.forEach(c => {
-        htmlDet += `<tr><td>${c.dt}</td><td>${c.tipo}</td><td>${c.conferente}</td></tr>`;
+    // Gerar Tabela de Cargas
+    let htmlTabela = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>CONFERENTE</th><th>PESO (KG)</th></tr></thead><tbody>';
+    dadosCargas.forEach(c => {
+        htmlTabela += `<tr><td>${c.dt}</td><td>${c.tipo}</td><td>${c.conferente}</td><td>${c.peso.toLocaleString('pt-BR')}</td></tr>`;
     });
-    htmlDet += '</tbody></table>';
-    document.getElementById('tabelaDetalhada').innerHTML = htmlDet;
+    document.getElementById('tabelaResultado').innerHTML = htmlTabela + '</tbody></table>';
 
-    // Mostrar resultados
-    document.getElementById('relatorio-final').style.display = 'block';
+    // Gerar Tabela de Conferentes
+    let htmlConf = '<h4>🏆 Produtividade (Cargas por Pessoa)</h4><table><thead><tr><th>Conferente</th><th>Qtd Proporcional</th></tr></thead><tbody>';
+    for (let c in conferentesProd) {
+        htmlConf += `<tr><td>${c}</td><td>${conferentesProd[c].toFixed(1)}</td></tr>`;
+    }
+    document.getElementById('tabelaConferentes').innerHTML = htmlConf + '</tbody></table>';
+
+    // Atualizar Cards
+    document.getElementById('cardP').innerHTML = `<b>PALETIZADA</b><br>${resumo.paletizada.qtd} Carros<br>${resumo.paletizada.peso.toLocaleString('pt-BR')} kg`;
+    document.getElementById('cardG').innerHTML = `<b>GRANEL</b><br>${resumo.granel.qtd} Carros<br>${resumo.granel.peso.toLocaleString('pt-BR')} kg`;
+    document.getElementById('cardT').innerHTML = `<b>TOTAL GERAL</b><br>${resumo.paletizada.qtd + resumo.granel.qtd} Veículos<br>${((resumo.paletizada.peso + resumo.granel.peso)/1000).toFixed(1)} Ton`;
+
+    renderizarGraficos(resumo);
+    document.getElementById('relatorio').style.display = 'block';
     document.getElementById('btnExport').style.display = 'inline-block';
-    document.getElementById('dataHoje').innerText = "Gerado em: " + new Date().toLocaleString('pt-BR');
 }
 
-function exportarRelatorio() {
-    const relatorio = document.getElementById('relatorio-final');
-    html2canvas(relatorio, { scale: 2 }).then(canvas => {
+function renderizarGraficos(resumo) {
+    const ctxPeso = document.getElementById('graficoPeso').getContext('2d');
+    const ctxQtd = document.getElementById('graficoQtd').getContext('2d');
+
+    if (chartPeso) chartPeso.destroy();
+    if (chartQtd) chartQtd.destroy();
+
+    chartPeso = new Chart(ctxPeso, {
+        type: 'pie',
+        data: {
+            labels: ['Paletizada', 'Granel'],
+            datasets: [{
+                data: [resumo.paletizada.peso, resumo.granel.peso],
+                backgroundColor: ['#17a2b8', '#28a745']
+            }]
+        }
+    });
+
+    chartQtd = new Chart(ctxQtd, {
+        type: 'bar',
+        data: {
+            labels: ['Paletizada', 'Granel'],
+            datasets: [{
+                label: 'Quantidade de Cargas',
+                data: [resumo.paletizada.qtd, resumo.granel.qtd],
+                backgroundColor: ['#17a2b8', '#28a745']
+            }]
+        },
+        options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+}
+
+function exportarFoto() {
+    html2canvas(document.getElementById('relatorio'), { scale: 2 }).then(canvas => {
         const link = document.createElement('a');
-        link.download = `Relatorio_JSL_${new Date().getTime()}.png`;
-        link.href = canvas.toDataURL("image/png");
+        link.download = `Fechamento_JSL.png`;
+        link.href = canvas.toDataURL();
         link.click();
     });
 }
 </script>
-
 </body>
 </html>
