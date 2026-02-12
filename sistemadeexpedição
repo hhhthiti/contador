@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Expedição JSL</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 850px; }
+        h2, h3 { color: #ed1c24; text-align: center; }
+        
+        textarea { width: 100%; height: 150px; margin: 15px 0; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-family: monospace; }
+        
+        .btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        button { border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-process { background: #28a745; }
+        .btn-export { background: #0056b3; }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+
+        #relatorio-final { background: white; padding: 20px; width: 100%; max-width: 900px; display: none; }
+        
+        .secao-tabela { margin-top: 30px; border-top: 2px solid #ed1c24; padding-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th { background: #ed1c24; color: white; padding: 12px; font-size: 14px; }
+        td { border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .grid-resumo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .card-conferente { background: #fff; border-left: 5px solid #ed1c24; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 Entrada de Dados de Carga</h2>
+    <p style="text-align: center; font-size: 0.9em; color: #666;">Cole os dados abaixo no formato: <b>DT TIPO CONFERENTE</b></p>
+    
+    <textarea id="inputDados" placeholder="Exemplo:
+DT450012 Estivada João_Silva
+DT450013 Paletizada Maria_Souza
+DT450014 Estivada João_Silva"></textarea>
+
+    <div class="btns">
+        <button class="btn-process" onclick="gerarRelatorios()">📊 Gerar Planilhas</button>
+        <button id="btnExport" class="btn-export" onclick="exportarRelatorio()" style="display:none">📸 Salvar como Imagem</button>
+    </div>
+</div>
+
+<div id="relatorio-final">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png" width="120">
+        <h3>FECHAMENTO DE EXPEDIÇÃO</h3>
+        <p id="dataHoje"></p>
+    </div>
+
+    <div class="secao-tabela">
+        <h3>🏆 1. PRODUTIVIDADE POR CONFERENTE</h3>
+        <div id="tabelaProdutividade"></div>
+    </div>
+
+    <div class="secao-tabela">
+        <h3>📋 2. DETALHAMENTO DAS DT'S</h3>
+        <div id="tabelaDetalhada"></div>
+    </div>
+</div>
+
+<script>
+function gerarRelatorios() {
+    const texto = document.getElementById('inputDados').value.trim();
+    if (!texto) return alert("Por favor, insira os dados!");
+
+    const linhas = texto.split('\n');
+    let listaCargas = [];
+    let contagemConferentes = {};
+
+    linhas.forEach(linha => {
+        // Divide a linha por espaços ou tabs
+        let partes = linha.split(/\s+/);
+        if (partes.length >= 3) {
+            let dt = partes[0];
+            let tipo = partes[1];
+            let conferente = partes.slice(2).join(" "); // Pega o resto do nome se houver espaços
+
+            // Salva na lista detalhada
+            listaCargas.push({ dt, tipo, conferente });
+
+            // Conta para a produtividade
+            contagemConferentes[conferente] = (contagemConferentes[conferente] || 0) + 1;
+        }
+    });
+
+    if (listaCargas.length === 0) return alert("Formato inválido! Use: DT TIPO CONFERENTE");
+
+    // --- CONSTRUIR TABELA 1 (PRODUTIVIDADE) ---
+    let htmlProd = '<table><thead><tr><th>Conferente</th><th>Total de Cargas</th></tr></thead><tbody>';
+    for (let conf in contagemConferentes) {
+        htmlProd += `<tr><td><b>${conf}</b></td><td>${contagemConferentes[conf]}</td></tr>`;
+    }
+    htmlProd += '</tbody></table>';
+    document.getElementById('tabelaProdutividade').innerHTML = htmlProd;
+
+    // --- CONSTRUIR TABELA 2 (DETALHADA) ---
+    let htmlDet = '<table><thead><tr><th>Nº DT</th><th>Tipo de Carga</th><th>Conferente</th></tr></thead><tbody>';
+    listaCargas.forEach(c => {
+        htmlDet += `<tr><td>${c.dt}</td><td>${c.tipo}</td><td>${c.conferente}</td></tr>`;
+    });
+    htmlDet += '</tbody></table>';
+    document.getElementById('tabelaDetalhada').innerHTML = htmlDet;
+
+    // Mostrar resultados
+    document.getElementById('relatorio-final').style.display = 'block';
+    document.getElementById('btnExport').style.display = 'inline-block';
+    document.getElementById('dataHoje').innerText = "Gerado em: " + new Date().toLocaleString('pt-BR');
+}
+
+function exportarRelatorio() {
+    const relatorio = document.getElementById('relatorio-final');
+    html2canvas(relatorio, { scale: 2 }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `Relatorio_JSL_${new Date().getTime()}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    });
+}
+</script>
+
+</body>
+</html>
