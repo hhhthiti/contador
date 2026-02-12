@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fechamento de Cargas JSL</title>
+    <title>Fechamento JSL - Final</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -14,32 +14,26 @@
         button { border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
         .btn-green { background: #28a745; }
         .btn-blue { background: #0056b3; }
-        button:hover { opacity: 0.8; }
-
+        
         #relatorio { background: white; padding: 30px; border-radius: 5px; margin-top: 20px; width: 100%; max-width: 800px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
         .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-        
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         th { background: #343a40; color: white; padding: 10px; font-size: 13px; }
         td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 14px; }
         tr:nth-child(even) { background-color: #f8f9fa; }
-
         .resumo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
         .card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; }
         .paletizada { background: #17a2b8; }
         .granel { background: #28a745; }
         .total-card { background: #ed1c24; }
-        
         .chart-box { max-width: 400px; margin: 0 auto; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Cargas</h2>
-    
-    <textarea id="inputDados" placeholder="Cole os dados aqui (DT TIPO PESO)"></textarea>
-
+    <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Cargas JSL</h2>
+    <textarea id="inputDados" placeholder="Cole os dados aqui..."></textarea>
     <div class="btns">
         <button class="btn-green" onclick="processarDados()">📊 Gerar Relatório</button>
         <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📸 Salvar Imagem</button>
@@ -54,18 +48,13 @@
             <small id="dataAtual"></small>
         </div>
     </div>
-
     <div class="resumo-grid">
         <div class="card paletizada" id="cardP"></div>
         <div class="card granel" id="cardG"></div>
         <div class="card total-card" id="cardT"></div>
     </div>
-
     <div id="tabelaResultado"></div>
-
-    <div class="chart-box">
-        <canvas id="graficoOperacao"></canvas>
-    </div>
+    <div class="chart-box"><canvas id="graficoOperacao"></canvas></div>
 </div>
 
 <script>
@@ -74,13 +63,15 @@ document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('
 
 function extrairPeso(texto) {
     let partes = texto.trim().split(/\s+/);
-    let ultimo = partes[partes.length - 1].replace(/[^\d]/g, '');
-    return parseFloat(ultimo) || 0;
+    let ultimo = partes[partes.length - 1];
+    // Remove pontos (milhar) e troca vírgula por ponto (decimal)
+    let valorLimpo = ultimo.replace(/\./g, '').replace(',', '.');
+    return parseFloat(valorLimpo) || 0;
 }
 
 function processarDados() {
     const texto = document.getElementById('inputDados').value.trim();
-    if (!texto) return alert("Insira os dados primeiro!");
+    if (!texto) return alert("Insira os dados!");
     
     const linhas = texto.split('\n');
     let cargas = [];
@@ -110,24 +101,17 @@ function processarDados() {
 
     let html = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>TONELADAS (TON)</th></tr></thead><tbody>';
     cargas.forEach(c => {
-        html += `<tr>
-            <td>${c.dt}</td>
-            <td><b>${c.tipo}</b></td>
-            <td>${(c.peso/1000).toFixed(2)}</td>
-        </tr>`;
+        html += `<tr><td>${c.dt}</td><td><b>${c.tipo}</b></td><td>${(c.peso/1000).toFixed(2)}</td></tr>`;
     });
     document.getElementById('tabelaResultado').innerHTML = html + '</tbody></table>';
 
-    // CÁLCULOS DOS TOTAIS
     let tonP = resumo.paletizada.peso / 1000;
     let tonG = resumo.granel.peso / 1000;
-    let totalCargas = resumo.paletizada.qtd + resumo.granel.qtd;
-    let totalToneladas = tonP + tonG;
+    let totalTon = tonP + tonG;
 
-    // ATUALIZAÇÃO DOS CARDS
-    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros<br>${tonP.toFixed(1)} Ton`;
-    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros<br>${tonG.toFixed(1)} Ton`;
-    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${totalCargas} Veículos<br>${totalToneladas.toFixed(1)} Ton`;
+    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros<br>${tonP.toFixed(2)} Ton`;
+    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros<br>${tonG.toFixed(2)} Ton`;
+    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${resumo.paletizada.qtd + resumo.granel.qtd} Veículos<br>${totalTon.toFixed(2)} Ton`;
 
     renderizarGrafico(resumo);
     document.getElementById('relatorio').style.display = 'block';
@@ -137,30 +121,24 @@ function processarDados() {
 function renderizarGrafico(resumo) {
     const ctx = document.getElementById('graficoOperacao').getContext('2d');
     if (meuGrafico) meuGrafico.destroy();
-    
     meuGrafico = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Paletizada', 'Granel'],
             datasets: [{
                 label: 'Toneladas',
-                data: [(resumo.paletizada.peso/1000), (resumo.granel.peso/1000)],
-                backgroundColor: ['#17a2b8', '#28a745'],
-                borderWidth: 1
+                data: [resumo.paletizada.peso/1000, resumo.granel.peso/1000],
+                backgroundColor: ['#17a2b8', '#28a745']
             }]
         },
-        options: {
-            responsive: true,
-            scales: { y: { beginAtZero: true } },
-            plugins: { legend: { display: false } }
-        }
+        options: { plugins: { legend: { display: false } } }
     });
 }
 
 function exportarFoto() {
     html2canvas(document.getElementById('relatorio'), { scale: 2 }).then(canvas => {
         const link = document.createElement('a');
-        link.download = `Relatorio_JSL.png`;
+        link.download = `Relatorio_Final.png`;
         link.href = canvas.toDataURL();
         link.click();
     });
