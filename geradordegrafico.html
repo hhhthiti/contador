@@ -7,33 +7,37 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 700px; }
-        textarea { width: 100%; height: 150px; margin: 15px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; box-sizing: border-box; }
+        textarea { width: 100%; height: 150px; margin: 15px 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-family: monospace; box-sizing: border-box; resize: vertical; }
         .btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         button { border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
         .btn-green { background: #28a745; }
+        .btn-green:hover { background: #218838; }
         .btn-blue { background: #0056b3; }
+        .btn-blue:hover { background: #004494; }
         
         #relatorio { background: white; padding: 30px; border-radius: 5px; margin-top: 20px; width: 100%; max-width: 800px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-        .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background: #343a40; color: white; padding: 10px; font-size: 13px; }
-        td { border: 1px solid #dee2e6; padding: 8px; text-align: center; font-size: 14px; }
+        .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ed1c24; padding-bottom: 10px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; }
+        th { background: #343a40; color: white; padding: 12px; font-size: 13px; text-transform: uppercase; }
+        td { border: 1px solid #dee2e6; padding: 10px; text-align: center; font-size: 14px; }
         tr:nth-child(even) { background-color: #f8f9fa; }
+        
         .resumo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; }
+        .card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
         .paletizada { background: #17a2b8; }
         .granel { background: #28a745; }
         .total-card { background: #ed1c24; }
-        .chart-box { max-width: 400px; margin: 0 auto; }
+        .chart-box { max-width: 500px; margin: 20px auto; padding: 10px; border: 1px solid #eee; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2 style="text-align:center; color: #ed1c24;">📊 Fechamento de Cargas JSL</h2>
-    <textarea id="inputDados" placeholder="Cole os dados aqui..."></textarea>
+    <p style="font-size: 0.8em; color: #666; text-align: center;">Cole as linhas com: <b>DT TIPO PESO</b></p>
+    <textarea id="inputDados" placeholder="Exemplo:&#10;856342 PALETIZADA 25.500,50&#10;856343 GRANEL 32.000,00"></textarea>
     <div class="btns">
         <button class="btn-green" onclick="processarDados()">📊 Gerar Relatório</button>
         <button id="btnExport" class="btn-blue" onclick="exportarFoto()" style="display:none">📸 Salvar Imagem</button>
@@ -48,34 +52,46 @@
             <small id="dataAtual"></small>
         </div>
     </div>
+
     <div class="resumo-grid">
         <div class="card paletizada" id="cardP"></div>
         <div class="card granel" id="cardG"></div>
         <div class="card total-card" id="cardT"></div>
     </div>
+
     <div id="tabelaResultado"></div>
-    <div class="chart-box"><canvas id="graficoOperacao"></canvas></div>
+    
+    <div class="chart-box">
+        <canvas id="graficoOperacao"></canvas>
+    </div>
 </div>
 
 <script>
 let meuGrafico = null;
-document.getElementById('dataAtual').innerText = new Date().toLocaleDateString('pt-BR');
+document.getElementById('dataAtual').innerText = "Gerado em: " + new Date().toLocaleString('pt-BR');
 
 function extrairPeso(texto) {
+    // Pega o último conjunto de caracteres da linha (geralmente o peso)
     let partes = texto.trim().split(/\s+/);
     let ultimo = partes[partes.length - 1];
-    // Remove pontos (milhar) e troca vírgula por ponto (decimal)
+    
+    // Remove pontos de milhar e troca vírgula decimal por ponto
     let valorLimpo = ultimo.replace(/\./g, '').replace(',', '.');
-    return parseFloat(valorLimpo) || 0;
+    let numero = parseFloat(valorLimpo);
+    
+    return isNaN(numero) ? 0 : numero;
 }
 
 function processarDados() {
     const texto = document.getElementById('inputDados').value.trim();
-    if (!texto) return alert("Insira os dados!");
+    if (!texto) return alert("Por favor, insira os dados das cargas!");
     
     const linhas = texto.split('\n');
     let cargas = [];
-    let resumo = { paletizada: { qtd: 0, peso: 0 }, granel: { qtd: 0, peso: 0 } };
+    let resumo = { 
+        paletizada: { qtd: 0, pesoTotal: 0 }, 
+        granel: { qtd: 0, pesoTotal: 0 } 
+    };
 
     linhas.forEach(linha => {
         let l = linha.toUpperCase().trim();
@@ -90,59 +106,84 @@ function processarDados() {
 
         if (tipo === "PALETIZADA") {
             resumo.paletizada.qtd++;
-            resumo.paletizada.peso += pesoKg;
+            resumo.paletizada.pesoTotal += pesoKg;
         } else {
             resumo.granel.qtd++;
-            resumo.granel.peso += pesoKg;
+            resumo.granel.pesoTotal += pesoKg;
         }
     });
 
+    // Ordenar: Paletizada primeiro
     cargas.sort((a, b) => a.tipo.localeCompare(b.tipo) * -1);
 
+    // Montar Tabela
     let html = '<table><thead><tr><th>Nº DT</th><th>TIPO</th><th>TONELADAS (TON)</th></tr></thead><tbody>';
     cargas.forEach(c => {
-        html += `<tr><td>${c.dt}</td><td><b>${c.tipo}</b></td><td>${(c.peso/1000).toFixed(2)}</td></tr>`;
+        let ton = c.peso / 1000;
+        html += `<tr><td>${c.dt}</td><td><b>${c.tipo}</b></td><td>${ton.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>`;
     });
     document.getElementById('tabelaResultado').innerHTML = html + '</tbody></table>';
 
-    let tonP = resumo.paletizada.peso / 1000;
-    let tonG = resumo.granel.peso / 1000;
+    // Totais para os Cards
+    let tonP = resumo.paletizada.pesoTotal / 1000;
+    let tonG = resumo.granel.pesoTotal / 1000;
     let totalTon = tonP + tonG;
+    let totalVeiculos = resumo.paletizada.qtd + resumo.granel.qtd;
 
-    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros<br>${tonP.toFixed(2)} Ton`;
-    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros<br>${tonG.toFixed(2)} Ton`;
-    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${resumo.paletizada.qtd + resumo.granel.qtd} Veículos<br>${totalTon.toFixed(2)} Ton`;
+    document.getElementById('cardP').innerHTML = `PALETIZADA<br>${resumo.paletizada.qtd} Carros<br>${tonP.toLocaleString('pt-BR', {maximumFractionDigits: 2})} Ton`;
+    document.getElementById('cardG').innerHTML = `GRANEL<br>${resumo.granel.qtd} Carros<br>${tonG.toLocaleString('pt-BR', {maximumFractionDigits: 2})} Ton`;
+    document.getElementById('cardT').innerHTML = `TOTAL GERAL<br>${totalVeiculos} Veículos<br>${totalTon.toLocaleString('pt-BR', {maximumFractionDigits: 2})} Ton`;
 
-    renderizarGrafico(resumo);
+    renderizarGrafico(tonP, tonG);
+    
     document.getElementById('relatorio').style.display = 'block';
     document.getElementById('btnExport').style.display = 'inline-block';
 }
 
-function renderizarGrafico(resumo) {
+function renderizarGrafico(tonP, tonG) {
     const ctx = document.getElementById('graficoOperacao').getContext('2d');
+    
     if (meuGrafico) meuGrafico.destroy();
+    
     meuGrafico = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Paletizada', 'Granel'],
             datasets: [{
                 label: 'Toneladas',
-                data: [resumo.paletizada.peso/1000, resumo.granel.peso/1000],
-                backgroundColor: ['#17a2b8', '#28a745']
+                data: [tonP.toFixed(2), tonG.toFixed(2)],
+                backgroundColor: ['#17a2b8', '#28a745'],
+                borderWidth: 1,
+                borderRadius: 5
             }]
         },
-        options: { plugins: { legend: { display: false } } }
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Tonelagem por Tipo de Carga' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
     });
 }
 
 function exportarFoto() {
-    html2canvas(document.getElementById('relatorio'), { scale: 2 }).then(canvas => {
+    const relatorio = document.getElementById('relatorio');
+    html2canvas(relatorio, { 
+        scale: 2,
+        useCORS: true,
+        logging: false
+    }).then(canvas => {
         const link = document.createElement('a');
-        link.download = `Relatorio_Final.png`;
-        link.href = canvas.toDataURL();
+        link.download = `Fechamento_JSL_${new Date().getTime()}.png`;
+        link.href = canvas.toDataURL("image/png");
         link.click();
     });
 }
 </script>
+
 </body>
 </html>
