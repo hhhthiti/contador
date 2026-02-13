@@ -2,84 +2,112 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Logística Dashboard - Gerador de Imagem</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Controle de Cargas - Formato Planilha</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 180px; border: 2px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 15px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
-        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        .btn-gerar { background: #007bff; color: white; flex: 2; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-foto { background: #28a745; color: white; flex: 1; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: none; }
-        button:hover { opacity: 0.9; }
+        textarea { width: 100%; height: 120px; border: 1px solid #ccc; border-radius: 5px; padding: 10px; margin-bottom: 15px; font-family: monospace; }
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 25px; }
+        button { cursor: pointer; border: none; border-radius: 5px; font-weight: bold; padding: 12px; transition: 0.3s; }
+        .btn-gerar { background: #2c3e50; color: white; flex: 2; }
+        .btn-foto { background: #27ae60; color: white; flex: 1; display: none; }
+        button:hover { opacity: 0.8; }
 
-        /* Área que será transformada em Foto */
-        #areaPrint { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
-        .charts { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
-        h2, h3 { color: #333; text-align: center; }
-        .footer-print { text-align: center; font-size: 12px; color: #999; margin-top: 15px; display: none; }
+        #areaPrint { background: white; padding: 15px; }
+        .grid-tabelas { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 25px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th { background: #f8f9fa; color: #333; border-bottom: 2px solid #dee2e6; padding: 10px; text-align: left; }
+        td { border-bottom: 1px solid #eee; padding: 8px; }
+        
+        /* Estilo Pódio */
+        .rank-row { display: flex; align-items: center; gap: 10px; }
+        .bar-container { background: #eee; flex-grow: 1; height: 12px; border-radius: 10px; overflow: hidden; }
+        .bar-fill { background: #3498db; height: 100%; }
+        .medal { font-weight: bold; width: 25px; }
+
+        h3 { border-left: 4px solid #3498db; padding-left: 10px; color: #2c3e50; margin-bottom: 15px; }
+        .tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .tag-p { background: #d4edda; color: #155724; } /* Paletizada */
+        .tag-g { background: #fff3cd; color: #856404; } /* Granel */
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Sistema de Produtividade - DTs</h2>
-    <textarea id="dadosInput" placeholder="Cole aqui os dados (DT, Carga, Conferente)..."></textarea>
+    <h3>Entrada de Dados</h3>
+    <textarea id="dadosInput" placeholder="Cole as colunas do Excel ou a lista vertical aqui..."></textarea>
     
     <div class="btn-group">
-        <button class="btn-gerar" onclick="processar()">1. GERAR GRÁFICOS</button>
-        <button id="btnFoto" class="btn-foto" onclick="gerarFoto()">2. SALVAR COMO FOTO (.PNG)</button>
+        <button class="btn-gerar" onclick="processar()">ATUALIZAR PLANILHAS</button>
+        <button id="btnFoto" class="btn-foto" onclick="gerarFoto()">SALVAR RELATÓRIO EM FOTO</button>
     </div>
 
     <div id="areaPrint">
-        <h3 id="tituloFoto" style="display:none;">RELATÓRIO DE CONFERÊNCIA - LOGÍSTICA</h3>
-        <div class="charts">
-            <div style="height: 400px;"><canvas id="chartPodio"></canvas></div>
-            <div style="height: 400px;"><canvas id="chartCargas"></canvas></div>
+        <div class="grid-tabelas">
+            <div>
+                <h3><center>DETALHAMENTO DE CARGAS</center></h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>DT</th>
+                            <th>TIPO</th>
+                            <th>CONFERENTE(S)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoTabela"></tbody>
+                </table>
+            </div>
+
+            <div>
+                <h3><center>PÓDIO (PRODUTIVIDADE)</center></h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>POS</th>
+                            <th>CONFERENTE</th>
+                            <th>PONTOS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoRanking"></tbody>
+                </table>
+            </div>
         </div>
-        <div id="printFooter" class="footer-print">Gerado em: <span id="dataAtual"></span></div>
     </div>
 </div>
 
 <script>
-let chartPodio, chartCargas;
-
 function processar() {
     const rawText = document.getElementById('dadosInput').value;
-    // Divide por linhas e limpa o que não é dado (cabeçalhos e vazios)
-    const linhas = rawText.split('\n').map(l => l.trim()).filter(l => l !== "" && !l.includes("DT") && !l.includes("CONFERENTE") && !l.includes("CARGA"));
+    const linhas = rawText.split('\n').map(l => l.trim()).filter(l => l !== "" && !l.includes("DT") && !l.includes("CARGA"));
     
+    let listaCargas = [];
     let scores = {};
-    let tipos = { 'Paletizada': 0, 'Granel': 0 };
 
-    // Lógica Inteligente: Se os dados vierem em lista (3 em 3) ou Tabela (separado por espaço/tab)
     for (let i = 0; i < linhas.length; i++) {
         let dt, cargaRaw, conferenteRaw;
-        
-        // Verifica se a linha tem as 3 infos juntas (separadas por tab ou espaço duplo)
         const colunas = linhas[i].split(/\t|\s{2,}/);
         
         if (colunas.length >= 3) {
+            dt = colunas[0];
             cargaRaw = colunas[1].toUpperCase();
             conferenteRaw = colunas[2].toUpperCase();
         } else {
-            // Se for lista vertical (DT na linha 0, Carga na 1, Nome na 2)
             dt = linhas[i];
             cargaRaw = (linhas[i+1] || "").toUpperCase();
             conferenteRaw = (linhas[i+2] || "").toUpperCase();
-            i += 2; // Pula as próximas 2 linhas já processadas
+            i += 2;
         }
 
         if (!cargaRaw) continue;
 
-        // Classificação Inteligente de Carga
-        if (cargaRaw.startsWith('P')) tipos['Paletizada']++;
-        else if (cargaRaw.startsWith('G')) tipos['Granel']++;
-
-        // Divisão de Conferentes (Regra 0.5)
+        // Normaliza tipo de carga
+        const tipo = cargaRaw.startsWith('P') ? 'Paletizada' : 'Granel';
+        
+        // Trata conferentes e pontos (regra 0.5)
         const nomes = conferenteRaw.replace(/\./g, '').split(/[\/|-]/);
         const peso = 1 / nomes.length;
 
@@ -87,64 +115,58 @@ function processar() {
             const n = nome.trim();
             if (n) scores[n] = (scores[n] || 0) + peso;
         });
+
+        listaCargas.push({ dt, tipo, conferente: conferenteRaw });
     }
 
-    renderizar(scores, tipos);
-    document.getElementById('btnFoto').style.display = 'block'; // Mostra botão de foto
+    desenharTabelas(listaCargas, scores);
+    document.getElementById('btnFoto').style.display = 'block';
 }
 
-function renderizar(scores, tipos) {
-    const labels = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
-    const data = labels.map(l => scores[l].toFixed(1));
+function desenharTabelas(lista, scores) {
+    // 1. Preencher Tabela de Detalhes
+    const corpoTabela = document.getElementById('corpoTabela');
+    corpoTabela.innerHTML = lista.map(item => `
+        <tr>
+            <td>${item.dt}</td>
+            <td><span class="tag ${item.tipo === 'Paletizada' ? 'tag-p' : 'tag-g'}">${item.tipo}</span></td>
+            <td>${item.conferente}</td>
+        </tr>
+    `).join('');
 
-    if (chartPodio) chartPodio.destroy();
-    if (chartCargas) chartCargas.destroy();
+    // 2. Preencher Ranking
+    const corpoRanking = document.getElementById('corpoRanking');
+    const sortedNames = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
+    const maxPontos = Math.max(...Object.values(scores));
 
-    chartPodio = new Chart(document.getElementById('chartPodio'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Cargas (Pontuação)',
-                data: data,
-                backgroundColor: '#007bff'
-            }]
-        },
-        options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { title: { display: true, text: 'RANKING (PÓDIO)' } } }
-    });
+    corpoRanking.innerHTML = sortedNames.map((nome, index) => {
+        const pts = scores[nome];
+        const larguraBarra = (pts / maxPontos) * 100;
+        let medalha = index + 1;
+        if(index === 0) medalha = "🥇";
+        if(index === 1) medalha = "🥈";
+        if(index === 2) medalha = "🥉";
 
-    chartCargas = new Chart(document.getElementById('chartCargas'), {
-        type: 'pie',
-        data: {
-            labels: ['Paletizada', 'Granel'],
-            datasets: [{
-                data: [tipos['Paletizada'], tipos['Granel']],
-                backgroundColor: ['#28a745', '#ffc107']
-            }]
-        },
-        options: { maintainAspectRatio: false, plugins: { title: { display: true, text: 'TIPOS DE CARGA' } } }
-    });
+        return `
+            <tr>
+                <td class="medal">${medalha}</td>
+                <td>
+                    <div style="font-weight:bold">${nome}</div>
+                    <div class="bar-container"><div class="bar-fill" style="width: ${larguraBarra}%"></div></div>
+                </td>
+                <td style="font-weight:bold; color:#2980b9">${pts.toFixed(1)}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function gerarFoto() {
     const area = document.getElementById('areaPrint');
-    const titulo = document.getElementById('tituloFoto');
-    const footer = document.getElementById('printFooter');
-    
-    // Prepara visual para a foto
-    titulo.style.display = 'block';
-    footer.style.display = 'block';
-    document.getElementById('dataAtual').innerText = new Date().toLocaleString();
-
     html2canvas(area).then(canvas => {
         const link = document.createElement('a');
-        link.download = 'Dashboard_Conferentes.png';
+        link.download = 'Relatorio_Logistica.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
-        
-        // Esconde de novo no site
-        titulo.style.display = 'none';
-        footer.style.display = 'none';
     });
 }
 </script>
