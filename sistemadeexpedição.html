@@ -2,30 +2,45 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Analisador de Cargas Inteligente</title>
+    <title>Logística Dashboard - Gerador de Imagem</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #e9ecef; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        textarea { width: 100%; height: 200px; border: 2px solid #ddd; border-radius: 8px; padding: 15px; font-family: monospace; }
-        button { background: #007bff; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; width: 100%; }
-        button:hover { background: #0056b3; }
-        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
-        canvas { background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
-        h2 { color: #333; margin-top: 0; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 180px; border: 2px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 15px; }
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn-gerar { background: #007bff; color: white; flex: 2; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-foto { background: #28a745; color: white; flex: 1; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: none; }
+        button:hover { opacity: 0.9; }
+
+        /* Área que será transformada em Foto */
+        #areaPrint { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .charts { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+        h2, h3 { color: #333; text-align: center; }
+        .footer-print { text-align: center; font-size: 12px; color: #999; margin-top: 15px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Logística: Processamento de DTs</h2>
-    <p>Cole os dados abaixo (aceita formato lista ou tabela do Excel):</p>
-    <textarea id="dadosInput" placeholder="Cole aqui as colunas ou a lista vertical..."></textarea>
-    <button onclick="processar()">Gerar Dashboard</button>
+    <h2>Sistema de Produtividade - DTs</h2>
+    <textarea id="dadosInput" placeholder="Cole aqui os dados (DT, Carga, Conferente)..."></textarea>
+    
+    <div class="btn-group">
+        <button class="btn-gerar" onclick="processar()">1. GERAR GRÁFICOS</button>
+        <button id="btnFoto" class="btn-foto" onclick="gerarFoto()">2. SALVAR COMO FOTO (.PNG)</button>
+    </div>
 
-    <div class="charts">
-        <canvas id="chartPodio"></canvas>
-        <canvas id="chartCargas"></canvas>
+    <div id="areaPrint">
+        <h3 id="tituloFoto" style="display:none;">RELATÓRIO DE CONFERÊNCIA - LOGÍSTICA</h3>
+        <div class="charts">
+            <div style="height: 400px;"><canvas id="chartPodio"></canvas></div>
+            <div style="height: 400px;"><canvas id="chartCargas"></canvas></div>
+        </div>
+        <div id="printFooter" class="footer-print">Gerado em: <span id="dataAtual"></span></div>
     </div>
 </div>
 
@@ -34,36 +49,48 @@ let chartPodio, chartCargas;
 
 function processar() {
     const rawText = document.getElementById('dadosInput').value;
-    // Limpa linhas vazias e remove o cabeçalho se existir
-    const linhas = rawText.split('\n').map(l => l.trim()).filter(l => l !== "" && !l.includes("DT") && !l.includes("CONFERENTE"));
+    // Divide por linhas e limpa o que não é dado (cabeçalhos e vazios)
+    const linhas = rawText.split('\n').map(l => l.trim()).filter(l => l !== "" && !l.includes("DT") && !l.includes("CONFERENTE") && !l.includes("CARGA"));
     
     let scores = {};
     let tipos = { 'Paletizada': 0, 'Granel': 0 };
 
-    // Lógica para leitura vertical (3 em 3 linhas: DT, Carga, Nome)
-    for (let i = 0; i < linhas.length; i += 3) {
-        if (!linhas[i+1] || !linhas[i+2]) break;
+    // Lógica Inteligente: Se os dados vierem em lista (3 em 3) ou Tabela (separado por espaço/tab)
+    for (let i = 0; i < linhas.length; i++) {
+        let dt, cargaRaw, conferenteRaw;
+        
+        // Verifica se a linha tem as 3 infos juntas (separadas por tab ou espaço duplo)
+        const colunas = linhas[i].split(/\t|\s{2,}/);
+        
+        if (colunas.length >= 3) {
+            cargaRaw = colunas[1].toUpperCase();
+            conferenteRaw = colunas[2].toUpperCase();
+        } else {
+            // Se for lista vertical (DT na linha 0, Carga na 1, Nome na 2)
+            dt = linhas[i];
+            cargaRaw = (linhas[i+1] || "").toUpperCase();
+            conferenteRaw = (linhas[i+2] || "").toUpperCase();
+            i += 2; // Pula as próximas 2 linhas já processadas
+        }
 
-        const cargaRaw = linhas[i+1].toUpperCase();
-        const conferenteRaw = linhas[i+2].toUpperCase().replace(/\./g, ''); // Remove pontos (ex: Felipe.)
+        if (!cargaRaw) continue;
 
-        // Identificação inteligente de carga (P = Paletizada, G = Granel)
+        // Classificação Inteligente de Carga
         if (cargaRaw.startsWith('P')) tipos['Paletizada']++;
         else if (cargaRaw.startsWith('G')) tipos['Granel']++;
 
-        // Divisão de conferentes (Bruno/Emerson ou Bruno/Buno)
-        const nomes = conferenteRaw.split(/[\/|-]/);
-        const pesoPorPessoa = 1 / nomes.length;
+        // Divisão de Conferentes (Regra 0.5)
+        const nomes = conferenteRaw.replace(/\./g, '').split(/[\/|-]/);
+        const peso = 1 / nomes.length;
 
         nomes.forEach(nome => {
             const n = nome.trim();
-            if (n) {
-                scores[n] = (scores[n] || 0) + pesoPorPessoa;
-            }
+            if (n) scores[n] = (scores[n] || 0) + peso;
         });
     }
 
     renderizar(scores, tipos);
+    document.getElementById('btnFoto').style.display = 'block'; // Mostra botão de foto
 }
 
 function renderizar(scores, tipos) {
@@ -73,27 +100,21 @@ function renderizar(scores, tipos) {
     if (chartPodio) chartPodio.destroy();
     if (chartCargas) chartCargas.destroy();
 
-    // Gráfico de Pódio
     chartPodio = new Chart(document.getElementById('chartPodio'), {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Cargas Conferidas (Peso Total)',
+                label: 'Cargas (Pontuação)',
                 data: data,
-                backgroundColor: '#007bff',
-                borderRadius: 5
+                backgroundColor: '#007bff'
             }]
         },
-        options: { 
-            indexAxis: 'y', 
-            plugins: { title: { display: true, text: 'RANKING DE CONFERENTES (PÓDIO)' } } 
-        }
+        options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { title: { display: true, text: 'RANKING (PÓDIO)' } } }
     });
 
-    // Gráfico de Pizza
     chartCargas = new Chart(document.getElementById('chartCargas'), {
-        type: 'doughnut',
+        type: 'pie',
         data: {
             labels: ['Paletizada', 'Granel'],
             datasets: [{
@@ -101,9 +122,29 @@ function renderizar(scores, tipos) {
                 backgroundColor: ['#28a745', '#ffc107']
             }]
         },
-        options: { 
-            plugins: { title: { display: true, text: 'DISTRIBUIÇÃO POR TIPO DE CARGA' } } 
-        }
+        options: { maintainAspectRatio: false, plugins: { title: { display: true, text: 'TIPOS DE CARGA' } } }
+    });
+}
+
+function gerarFoto() {
+    const area = document.getElementById('areaPrint');
+    const titulo = document.getElementById('tituloFoto');
+    const footer = document.getElementById('printFooter');
+    
+    // Prepara visual para a foto
+    titulo.style.display = 'block';
+    footer.style.display = 'block';
+    document.getElementById('dataAtual').innerText = new Date().toLocaleString();
+
+    html2canvas(area).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'Dashboard_Conferentes.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        // Esconde de novo no site
+        titulo.style.display = 'none';
+        footer.style.display = 'none';
     });
 }
 </script>
