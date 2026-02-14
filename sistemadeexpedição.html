@@ -2,174 +2,193 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Controle de Cargas - Formato Planilha</title>
+    <title>Relatório de Cargas BC</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f9; padding: 20px; }
-        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        
-        textarea { width: 100%; height: 120px; border: 1px solid #ccc; border-radius: 5px; padding: 10px; margin-bottom: 15px; font-family: monospace; }
-        
-        .btn-group { display: flex; gap: 10px; margin-bottom: 25px; }
-        button { cursor: pointer; border: none; border-radius: 5px; font-weight: bold; padding: 12px; transition: 0.3s; }
-        .btn-gerar { background: #2c3e50; color: white; flex: 2; }
-        .btn-foto { background: #27ae60; color: white; flex: 1; display: none; }
-        button:hover { opacity: 0.8; }
-
-        #areaPrint { background: white; padding: 15px; }
-        .grid-tabelas { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 25px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th { background: #f8f9fa; color: #333; border-bottom: 2px solid #dee2e6; padding: 10px; text-align: left; }
-        td { border-bottom: 1px solid #eee; padding: 8px; }
-        
-        /* Estilo Pódio */
-        .rank-row { display: flex; align-items: center; gap: 10px; }
-        .bar-container { background: #eee; flex-grow: 1; height: 12px; border-radius: 10px; overflow: hidden; }
-        .bar-fill { background: #3498db; height: 100%; }
-        .medal { font-weight: bold; width: 25px; }
-
-        h3 { border-left: 4px solid #3498db; padding-left: 10px; color: #2c3e50; margin-bottom: 15px; }
-        .tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .tag-p { background: #d4edda; color: #155724; } /* Paletizada */
-        .tag-g { background: #fff3cd; color: #856404; } /* Granel */
+        body { font-family: 'Segoe UI', Arial; background: #f0f2f5; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .erro { color: #d32f2f; background: #ffcdd2; padding: 10px; border-radius: 4px; display: none; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 13px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #004a99; color: white; }
+        .controles { display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        .btn { background: #28a745; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        #debug-info { font-family: monospace; font-size: 11px; color: #666; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h3>Entrada de Dados</h3>
-    <textarea id="dadosInput" placeholder="Cole as colunas do Excel ou a lista vertical aqui..."></textarea>
+<div class="card">
+    <h2>Upload da Planilha de Cargas</h2>
+    <div id="mensagem-erro" class="erro"></div>
+    <input type="file" id="upload" accept=".xlsx, .xls" />
+    <div id="debug-info"></div>
     
-    <div class="btn-group">
-        <button class="btn-gerar" onclick="processar()">ATUALIZAR PLANILHAS</button>
-        <button id="btnFoto" class="btn-foto" onclick="gerarFoto()">SALVAR RELATÓRIO EM FOTO</button>
-    </div>
-
-    <div id="areaPrint">
-        <div class="grid-tabelas">
-            <div>
-                <h3><center>DETALHAMENTO DE CARGAS</center></h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>DT</th>
-                            <th>TIPO</th>
-                            <th>CONFERENTE(S)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="corpoTabela"></tbody>
-                </table>
-            </div>
-
-            <div>
-                <h3><center>PÓDIO (PRODUTIVIDADE)</center></h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>POS</th>
-                            <th>CONFERENTE</th>
-                            <th>PONTOS</th>
-                        </tr>
-                    </thead>
-                    <tbody id="corpoRanking"></tbody>
-                </table>
-            </div>
+    <div id="config" class="controles">
+        <p><strong>Filtros ativos:</strong> Segmento BC | Status Permitidos | Entre Ontem 22h e Hoje 06h</p>
+        <div style="margin-bottom: 10px;">
+            <label><input type="checkbox" class="toggle-col" data-col="0" checked> DT</label>
+            <label><input type="checkbox" class="toggle-col" data-col="1" checked> Tipo</label>
+            <label><input type="checkbox" class="toggle-col" data-col="2" checked> Peso</label>
+            <label><input type="checkbox" class="toggle-col" data-col="3" checked> Status</label>
+            <label><input type="checkbox" class="toggle-col" data-col="5" checked> Doca</label>
         </div>
+        <button class="btn" onclick="baixarFoto()">Exportar PNG</button>
+    </div>
+</div>
+
+<div id="resultado" style="display:none;">
+    <div class="card">
+        <canvas id="graficoBarras" style="max-height: 300px;"></canvas>
+    </div>
+    <div class="card" id="tabela-print">
+        <table id="tabela-dados">
+            <thead>
+                <tr>
+                    <th class="c0">DT (Doc)</th>
+                    <th class="c1">Tipo Carga</th>
+                    <th class="c2">Peso (Kg)</th>
+                    <th class="c3">Status</th>
+                    <th class="c4">NF Solic.</th>
+                    <th class="c5">Doca</th>
+                    <th class="c6">Encosta (Q)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 
 <script>
-function processar() {
-    const rawText = document.getElementById('dadosInput').value;
-    const linhas = rawText.split('\n').map(l => l.trim()).filter(l => l !== "" && !l.includes("DT") && !l.includes("CARGA"));
+let meuGrafico = null;
+
+document.getElementById('upload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    const erroDiv = document.getElementById('mensagem-erro');
+    const debug = document.getElementById('debug-info');
     
-    let listaCargas = [];
-    let scores = {};
+    erroDiv.style.display = 'none';
+    debug.innerHTML = "Lendo arquivo...";
 
-    for (let i = 0; i < linhas.length; i++) {
-        let dt, cargaRaw, conferenteRaw;
-        const colunas = linhas[i].split(/\t|\s{2,}/);
-        
-        if (colunas.length >= 3) {
-            dt = colunas[0];
-            cargaRaw = colunas[1].toUpperCase();
-            conferenteRaw = colunas[2].toUpperCase();
-        } else {
-            dt = linhas[i];
-            cargaRaw = (linhas[i+1] || "").toUpperCase();
-            conferenteRaw = (linhas[i+2] || "").toUpperCase();
-            i += 2;
+    reader.onload = function(event) {
+        try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy hh:mm'});
+            const aba = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(aba, {header: "A"});
+            
+            processar(json);
+        } catch (err) {
+            erroDiv.innerHTML = "Erro ao ler Excel: " + err;
+            erroDiv.style.display = 'block';
         }
+    };
+    reader.readAsArrayBuffer(file);
+});
 
-        if (!cargaRaw) continue;
+function processar(linhas) {
+    const tbody = document.querySelector('#tabela-dados tbody');
+    tbody.innerHTML = "";
+    
+    // Configuração do Turno
+    const agora = new Date();
+    const ontem22h = new Date(agora);
+    ontem22h.setDate(agora.getDate() - 1);
+    ontem22h.setHours(22, 0, 0, 0);
+    
+    const hoje06h = new Date(agora);
+    hoje06h.setHours(6, 0, 0, 0);
 
-        // Normaliza tipo de carga
-        const tipo = cargaRaw.startsWith('P') ? 'Paletizada' : 'Granel';
+    let stats = { palet: { q: 0, p: 0 }, estiv: { q: 0, p: 0 } };
+    const statusValidos = ["Operação Abandonada","NF Emitida","Finalizado","Faturamento Iniciado","Descarga Concluída","Carregamento Concluído"];
+
+    linhas.forEach((row, i) => {
+        if(i === 0) return; // Pula cabeçalho
+
+        // 1. Filtro Segmento (D)
+        if (String(row.D).trim().toUpperCase() !== "BC") return;
+
+        // 2. Filtro Status (N)
+        if (!statusValidos.includes(String(row.N).trim())) return;
+
+        // 3. Filtro de Horário (Q)
+        let dataQ = row.Q;
+        // Se a data vier como número do Excel, converte
+        if (typeof dataQ === 'number') dataQ = XLSX.SSF.parse_date_code(dataQ);
+        const dataEncosta = new Date(dataQ);
+
+        if (isNaN(dataEncosta.getTime()) || dataEncosta < ontem22h || dataEncosta > hoje06h) return;
+
+        // 4. Captura de Dados
+        const peso = parseFloat(String(row.L).replace(/\./g, '').replace(',', '.')) || 0;
+        const tipo = String(row.B).toUpperCase().includes("PALET") ? "PALETIZADA" : "ESTIVADA";
         
-        // Trata conferentes e pontos (regra 0.5)
-        const nomes = conferenteRaw.replace(/\./g, '').split(/[\/|-]/);
-        const peso = 1 / nomes.length;
+        // Montar Linha
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="c0">${row.J || '-'}</td>
+            <td class="c1">${tipo}</td>
+            <td class="c2">${peso.toLocaleString('pt-BR')}</td>
+            <td class="c3">${row.N}</td>
+            <td class="c4">${row.V ? 'OK' : '-'}</td>
+            <td class="c5">${row.AA || '-'}</td>
+            <td class="c6">${dataEncosta.toLocaleString('pt-BR')}</td>
+        `;
+        tbody.appendChild(tr);
 
-        nomes.forEach(nome => {
-            const n = nome.trim();
-            if (n) scores[n] = (scores[n] || 0) + peso;
-        });
+        // Somar Gráfico
+        if(tipo === "PALETIZADA") { stats.palet.q++; stats.palet.p += peso; }
+        else { stats.estiv.q++; stats.estiv.p += peso; }
+    });
 
-        listaCargas.push({ dt, tipo, conferente: conferenteRaw });
+    if(tbody.rows.length === 0) {
+        alert("Nenhuma DT encontrada para este turno (22h-06h) no segmento BC.");
+        return;
     }
 
-    desenharTabelas(listaCargas, scores);
-    document.getElementById('btnFoto').style.display = 'block';
+    document.getElementById('resultado').style.display = 'block';
+    document.getElementById('config').style.display = 'block';
+    desenharGrafico(stats);
 }
 
-function desenharTabelas(lista, scores) {
-    // 1. Preencher Tabela de Detalhes
-    const corpoTabela = document.getElementById('corpoTabela');
-    corpoTabela.innerHTML = lista.map(item => `
-        <tr>
-            <td>${item.dt}</td>
-            <td><span class="tag ${item.tipo === 'Paletizada' ? 'tag-p' : 'tag-g'}">${item.tipo}</span></td>
-            <td>${item.conferente}</td>
-        </tr>
-    `).join('');
-
-    // 2. Preencher Ranking
-    const corpoRanking = document.getElementById('corpoRanking');
-    const sortedNames = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
-    const maxPontos = Math.max(...Object.values(scores));
-
-    corpoRanking.innerHTML = sortedNames.map((nome, index) => {
-        const pts = scores[nome];
-        const larguraBarra = (pts / maxPontos) * 100;
-        let medalha = index + 1;
-        if(index === 0) medalha = "🥇";
-        if(index === 1) medalha = "🥈";
-        if(index === 2) medalha = "🥉";
-
-        return `
-            <tr>
-                <td class="medal">${medalha}</td>
-                <td>
-                    <div style="font-weight:bold">${nome}</div>
-                    <div class="bar-container"><div class="bar-fill" style="width: ${larguraBarra}%"></div></div>
-                </td>
-                <td style="font-weight:bold; color:#2980b9">${pts.toFixed(1)}</td>
-            </tr>
-        `;
-    }).join('');
+function desenharGrafico(s) {
+    const ctx = document.getElementById('graficoBarras').getContext('2d');
+    if(meuGrafico) meuGrafico.destroy();
+    
+    meuGrafico = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Paletizada', 'Estivada'],
+            datasets: [{
+                label: 'Qtd DTs',
+                data: [s.palet.q, s.estiv.q],
+                backgroundColor: '#004a99'
+            }, {
+                label: 'Peso Total (ton)',
+                data: [s.palet.p / 1000, s.estiv.p / 1000],
+                backgroundColor: '#cf0000'
+            }]
+        }
+    });
 }
 
-function gerarFoto() {
-    const area = document.getElementById('areaPrint');
-    html2canvas(area).then(canvas => {
+function baixarFoto() {
+    // Esconder colunas não selecionadas
+    document.querySelectorAll('.toggle-col').forEach(chk => {
+        const colClass = '.c' + chk.dataset.col;
+        document.querySelectorAll(colClass).forEach(el => el.style.display = chk.checked ? '' : 'none');
+    });
+
+    html2canvas(document.getElementById('resultado')).then(canvas => {
         const link = document.createElement('a');
-        link.download = 'Relatorio_Logistica.png';
-        link.href = canvas.toDataURL('image/png');
+        link.download = 'Relatorio_Turno_BC.png';
+        link.href = canvas.toDataURL();
         link.click();
     });
 }
 </script>
-
 </body>
 </html>
