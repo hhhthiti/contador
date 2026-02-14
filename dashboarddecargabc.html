@@ -1,134 +1,194 @@
-<script>
-let graficoInstancia = null;
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Cargas BC</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial; background: #f0f2f5; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .erro { color: #d32f2f; background: #ffcdd2; padding: 10px; border-radius: 4px; display: none; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 13px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #004a99; color: white; }
+        .controles { display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        .btn { background: #28a745; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        #debug-info { font-family: monospace; font-size: 11px; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
 
-document.getElementById('input-excel').addEventListener('change', function(e) {
-    const log = document.getElementById('log');
-    log.innerHTML = "Processando turno (22h - 06h)...";
+<div class="card">
+    <h2>Upload da Planilha de Cargas</h2>
+    <div id="mensagem-erro" class="erro"></div>
+    <input type="file" id="upload" accept=".xlsx, .xls" />
+    <div id="debug-info"></div>
     
+    <div id="config" class="controles">
+        <p><strong>Filtros ativos:</strong> Segmento BC | Status Permitidos | Entre Ontem 22h e Hoje 06h</p>
+        <div style="margin-bottom: 10px;">
+            <label><input type="checkbox" class="toggle-col" data-col="0" checked> DT</label>
+            <label><input type="checkbox" class="toggle-col" data-col="1" checked> Tipo</label>
+            <label><input type="checkbox" class="toggle-col" data-col="2" checked> Peso</label>
+            <label><input type="checkbox" class="toggle-col" data-col="3" checked> Status</label>
+            <label><input type="checkbox" class="toggle-col" data-col="5" checked> Doca</label>
+        </div>
+        <button class="btn" onclick="baixarFoto()">Exportar PNG</button>
+    </div>
+</div>
+
+<div id="resultado" style="display:none;">
+    <div class="card">
+        <canvas id="graficoBarras" style="max-height: 300px;"></canvas>
+    </div>
+    <div class="card" id="tabela-print">
+        <table id="tabela-dados">
+            <thead>
+                <tr>
+                    <th class="c0">DT (Doc)</th>
+                    <th class="c1">Tipo Carga</th>
+                    <th class="c2">Peso (Kg)</th>
+                    <th class="c3">Status</th>
+                    <th class="c4">NF Solic.</th>
+                    <th class="c5">Doca</th>
+                    <th class="c6">Encosta (Q)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let meuGrafico = null;
+
+document.getElementById('upload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     const reader = new FileReader();
+    const erroDiv = document.getElementById('mensagem-erro');
+    const debug = document.getElementById('debug-info');
+    
+    erroDiv.style.display = 'none';
+    debug.innerHTML = "Lendo arquivo...";
 
-    reader.onload = function(e) {
+    reader.onload = function(event) {
         try {
-            const data = new Uint8Array(e.target.result);
-            // Usamos raw: false para o SheetJS tentar formatar as datas automaticamente
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(firstSheet, {header: "A", raw: false});
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy hh:mm'});
+            const aba = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(aba, {header: "A"});
             
-            processarDTS(rows);
-            log.innerHTML = "<span style='color:green'>Filtro de Turno Aplicado com Sucesso!</span>";
+            processar(json);
         } catch (err) {
-            log.innerHTML = "Erro: " + err;
+            erroDiv.innerHTML = "Erro ao ler Excel: " + err;
+            erroDiv.style.display = 'block';
         }
     };
     reader.readAsArrayBuffer(file);
 });
 
-function converterDataExcel(valor) {
-    if (!valor) return null;
-    // Tenta converter o formato comum de data do Excel ou texto para objeto Date do JS
-    const d = new Date(valor);
-    return isNaN(d.getTime()) ? null : d;
-}
-
-function processarDTS(rows) {
+function processar(linhas) {
     const tbody = document.querySelector('#tabela-dados tbody');
     tbody.innerHTML = "";
     
-    let stats = {
-        paletizada: { qtd: 0, peso: 0 },
-        estivada: { qtd: 0, peso: 0 }
-    };
-
-    // --- DEFINIÇÃO DO PERÍODO DO TURNO ---
+    // Configuração do Turno
     const agora = new Date();
-    const dataHoje = agora.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const ontem22h = new Date(agora);
+    ontem22h.setDate(agora.getDate() - 1);
+    ontem22h.setHours(22, 0, 0, 0);
     
-    const inicioTurno = new Date();
-    inicioTurno.setDate(agora.getDate() - 1);
-    inicioTurno.setHours(22, 0, 0); // Ontem às 22:00
+    const hoje06h = new Date(agora);
+    hoje06h.setHours(6, 0, 0, 0);
 
-    const fimTurno = new Date();
-    fimTurno.setHours(6, 0, 0);    // Hoje às 06:00
-    // -------------------------------------
+    let stats = { palet: { q: 0, p: 0 }, estiv: { q: 0, p: 0 } };
+    const statusValidos = ["Operação Abandonada","NF Emitida","Finalizado","Faturamento Iniciado","Descarga Concluída","Carregamento Concluído"];
 
-    const statusPermitidos = ["Operação Abandonada", "NF Emitida", "Finalizado", "Faturamento Iniciado", "Descarga Concluída", "Carregamento Concluído"];
+    linhas.forEach((row, i) => {
+        if(i === 0) return; // Pula cabeçalho
 
-    rows.forEach((r, index) => {
-        if(index === 0) return;
+        // 1. Filtro Segmento (D)
+        if (String(row.D).trim().toUpperCase() !== "BC") return;
 
-        // 1. FILTRO DE HORÁRIO (Coluna Q - Autorização de Encosta)
-        const dataEncosta = converterDataExcel(r.Q);
-        if (!dataEncosta || dataEncosta < inicioTurno || dataEncosta > fimTurno) return;
+        // 2. Filtro Status (N)
+        if (!statusValidos.includes(String(row.N).trim())) return;
 
-        // 2. FILTRO DE SEGMENTO (Coluna D)
-        if (String(r.D).toUpperCase() !== "BC") return;
+        // 3. Filtro de Horário (Q)
+        let dataQ = row.Q;
+        // Se a data vier como número do Excel, converte
+        if (typeof dataQ === 'number') dataQ = XLSX.SSF.parse_date_code(dataQ);
+        const dataEncosta = new Date(dataQ);
 
-        // 3. FILTRO DE STATUS (Coluna N)
-        if (!statusPermitidos.includes(String(r.N).trim())) return;
+        if (isNaN(dataEncosta.getTime()) || dataEncosta < ontem22h || dataEncosta > hoje06h) return;
 
-        // --- SE PASSOU PELOS FILTROS, PROCESSA ---
-        const peso = parseFloat(String(r.L).replace('.', '').replace(',', '.')) || 0;
-        const dt = r.J || "N/A";
+        // 4. Captura de Dados
+        const peso = parseFloat(String(row.L).replace(/\./g, '').replace(',', '.')) || 0;
+        const tipo = String(row.B).toUpperCase().includes("PALET") ? "PALETIZADA" : "ESTIVADA";
         
-        // Critério: Se a coluna B contiver "PALET" é paletizada, senão é estivada
-        const tipoCarga = String(r.B).toUpperCase().includes("PALET") ? "PALETIZADA" : "ESTIVADA";
-
+        // Montar Linha
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="col-0">${dt}</td>
-            <td class="col-1">${tipoCarga}</td>
-            <td class="col-2">${peso.toLocaleString('pt-BR')} kg</td>
-            <td class="col-3">${r.N}</td>
-            <td class="col-4">${r.V ? '✅ ' + r.V : '-'}</td>
-            <td class="col-5">${r.AA || '-'}</td>
-            <td class="col-6">${r.O || '-'}</td>
+            <td class="c0">${row.J || '-'}</td>
+            <td class="c1">${tipo}</td>
+            <td class="c2">${peso.toLocaleString('pt-BR')}</td>
+            <td class="c3">${row.N}</td>
+            <td class="c4">${row.V ? 'OK' : '-'}</td>
+            <td class="c5">${row.AA || '-'}</td>
+            <td class="c6">${dataEncosta.toLocaleString('pt-BR')}</td>
         `;
         tbody.appendChild(tr);
 
-        if(tipoCarga === "PALETIZADA") {
-            stats.paletizada.qtd++;
-            stats.paletizada.weight += peso; // Note: usei weight para não confundir, mas corrigindo abaixo
-            stats.paletizada.peso += peso;
-        } else {
-            stats.estivada.qtd++;
-            stats.estivada.peso += peso;
-        }
+        // Somar Gráfico
+        if(tipo === "PALETIZADA") { stats.palet.q++; stats.palet.p += peso; }
+        else { stats.estiv.q++; stats.estiv.p += peso; }
     });
 
-    document.getElementById('configuracoes').style.display = 'block';
-    document.getElementById('grafico-container').style.display = 'block';
-    document.getElementById('tabela-container').style.display = 'block';
-    atualizarGrafico(stats);
+    if(tbody.rows.length === 0) {
+        alert("Nenhuma DT encontrada para este turno (22h-06h) no segmento BC.");
+        return;
+    }
+
+    document.getElementById('resultado').style.display = 'block';
+    document.getElementById('config').style.display = 'block';
+    desenharGrafico(stats);
 }
 
-function atualizarGrafico(stats) {
-    const ctx = document.getElementById('meuGrafico').getContext('2d');
-    if(graficoInstancia) graficoInstancia.destroy();
-
-    const totalQtd = stats.paletizada.qtd + stats.estivada.qtd;
-    const totalPeso = (stats.paletizada.peso + stats.estivada.peso).toLocaleString('pt-BR');
-
-    graficoInstancia = new Chart(ctx, {
+function desenharGrafico(s) {
+    const ctx = document.getElementById('graficoBarras').getContext('2d');
+    if(meuGrafico) meuGrafico.destroy();
+    
+    meuGrafico = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Paletizada', 'Estivada'],
             datasets: [{
                 label: 'Qtd DTs',
-                data: [stats.paletizada.qtd, stats.estivada.qtd],
-                backgroundColor: '#007bff'
+                data: [s.palet.q, s.estiv.q],
+                backgroundColor: '#004a99'
+            }, {
+                label: 'Peso Total (ton)',
+                data: [s.palet.p / 1000, s.estiv.p / 1000],
+                backgroundColor: '#cf0000'
             }]
-        },
-        options: {
-            plugins: {
-                title: {
-                    display: true,
-                    text: `Total de DTs: ${totalQtd} | Peso Total: ${totalPeso} kg`
-                }
-            }
         }
     });
 }
-// Mantenha a função exportarPNG() igual à anterior
+
+function baixarFoto() {
+    // Esconder colunas não selecionadas
+    document.querySelectorAll('.toggle-col').forEach(chk => {
+        const colClass = '.c' + chk.dataset.col;
+        document.querySelectorAll(colClass).forEach(el => el.style.display = chk.checked ? '' : 'none');
+    });
+
+    html2canvas(document.getElementById('resultado')).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'Relatorio_Turno_BC.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    });
+}
 </script>
+</body>
+</html>
