@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Menu Principal - Ferramentas</title>
+  <title>Menu Principal - Ferramentas Operação</title>
+
   <style>
     body {
       margin: 0;
@@ -18,7 +19,7 @@
 
     .container {
       width: 100%;
-      max-width: 400px;
+      max-width: 450px;
       background: #fff;
       padding: 25px;
       border-radius: 15px;
@@ -28,16 +29,13 @@
 
     h2 {
       margin-bottom: 20px;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: bold;
       color: #333;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      border-bottom: 2px solid #ffcc00;
+      border-bottom: 2px solid #ed1c24;
       padding-bottom: 10px;
     }
 
-    /* Ajuste para os botões caberem em lista sem rolar demais */
     .menu-grid {
       display: flex;
       flex-direction: column;
@@ -47,83 +45,90 @@
     .btn {
       width: 100%;
       padding: 12px;
-      background: #4caf50;
-      color: white;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: bold;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       transition: 0.3s;
       text-align: left;
-      padding-left: 20px;
-      display: flex;
-      align-items: center;
-      text-decoration: none;
+      padding-left: 15px;
+      color: white;
     }
-
-    .btn i {
-      margin-right: 15px;
-      font-style: normal;
-    }
-
-    /* Cores Diferenciadas */
-    .btn-resumo { background: #0056b3; }
-    .btn-docas { background: #d32f2f; } /* Vermelho JSL */
-    .btn-grafico { background: #673ab7; }
-    .btn-calc { background: #ff9800; }
 
     .btn:hover {
       filter: brightness(1.1);
       transform: scale(1.02);
     }
 
-    .footer-info {
+    /* Cores */
+    .docas { background: #d32f2f; }
+    .dashboard { background: #004a99; }
+    .grafico { background: #673ab7; }
+    .expedicao { background: #00897b; }
+    .calc { background: #ff9800; }
+    .sku { background: #455a64; }
+    .qr { background: #2e7d32; }
+
+    .footer {
       margin-top: 15px;
-      font-size: 10px;
-      color: #888;
+      font-size: 11px;
+      color: #777;
     }
+
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h2>Menu Principal</h2>
+<div class="container">
 
-    <div class="menu-grid">
-      <button class="btn btn-docas" onclick="location.href='gestaodedocas.html'">
-        <span>🚛 Gestão de Docas 1-11</span>
-      </button>
+  <h2>🚛 Ferramentas Operação JSL</h2>
 
-      <button class="btn btn-resumo" onclick="location.href='Geradorderesumo.html'">
-        <span>📊 Gerador de Resumo</span>
-      </button>
+  <div class="menu-grid">
 
-      <button class="btn btn-calc" onclick="location.href='Calculadoradefardos.html'">
-        <span>🧮 Calculadora de Fardos</span>
-      </button>
+    <button class="btn docas" onclick="location.href='gestaodedocas.html'">
+      🚛 Gestão de Docas
+    </button>
 
-      <button class="btn" onclick="location.href='contadordesku.html'">
-        <span>🔢 Contador de SKU</span>
-      </button>
+    <button class="btn dashboard" onclick="location.href='dashboarddecargabc.html'">
+      📊 Dashboard Turno BC
+    </button>
 
-      <button class="btn btn-grafico" onclick="location.href='geradordegrafico.html'">
-        <span>📈 Gerador de Gráfico</span>
-      </button>
+    <button class="btn grafico" onclick="location.href='geradordegrafico.html'">
+      📈 Gerador de Gráfico de Cargas
+    </button>
 
-      <button class="btn" onclick="location.href='Geradordeqrcode.html'">
-        <span>🤖 Gerador de QR Code</span>
-      </button>
+    <button class="btn expedicao" onclick="location.href='sistemadeexpedição.html'">
+      🏆 Sistema de Expedição (Ranking)
+    </button>
 
-      <button class="btn" onclick="location.href='Qrcodeteste.html'">
-        <span>🔄 QR Code to Login</span>
-      </button>
-    </div>
+    <button class="btn dashboard" onclick="location.href='Geradorderesumo.html'">
+      📋 Gerador de Resumo
+    </button>
 
-    <div class="footer-info">
-      v1.0 - Operação JSL
-    </div>
+    <button class="btn calc" onclick="location.href='Calculadoradefardos.html'">
+      🧮 Calculadora de Fardos
+    </button>
+
+    <button class="btn sku" onclick="location.href='contadordesku.html'">
+      🔢 Contador de SKU
+    </button>
+
+    <button class="btn qr" onclick="location.href='Geradordeqrcode.html'">
+      🤖 Gerador de QR Code
+    </button>
+
+    <button class="btn qr" onclick="location.href='Qrcodeteste.html'">
+      🔄 QR Code Login
+    </button>
+
   </div>
+
+  <div class="footer">
+    Sistema Interno v2.0
+  </div>
+
+</div>
 
 </body>
 </html>
