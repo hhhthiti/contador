@@ -133,12 +133,27 @@ function processar(linhas) {
         restante: { qtd: 0, peso: 0 }
     };
 
+    const diagnostico = {
+        total: linhasPadronizadas.length,
+        segmentoBC: 0,
+        acondVazio: 0,
+        dataValida: 0,
+        horarioNoturno: 0
+    };
+
     linhasPadronizadas.forEach((row) => {
         if (String(row['SEGMENTO'] || '').trim().toUpperCase() !== 'BC') return;
-        if (String(row['ACONDICIONAMENTO'] || '').trim() !== '') return;
+        diagnostico.segmentoBC++;
+
+        if (!isCampoVazio(row['ACONDICIONAMENTO'])) return;
+        diagnostico.acondVazio++;
 
         const dataEncosta = parseExcelDate(row['AUTORIZAÇÃO DE ENCOSTA']);
-        if (!dataEncosta || !isHorarioNoturno(dataEncosta)) return;
+        if (!dataEncosta) return;
+        diagnostico.dataValida++;
+
+        if (!isHorarioNoturno(dataEncosta)) return;
+        diagnostico.horarioNoturno++;
 
         const documento = String(row['DOCUMENTO'] || '-').trim() || '-';
         const pesoKg = parsePesoKg(row['PESO']);
@@ -174,7 +189,8 @@ function processar(linhas) {
     });
 
     if(tbody.rows.length === 0) {
-        alert("Nenhuma carga encontrada com os filtros aplicados (BC + acondicionamento vazio + 22h às 06h).");
+        debug.textContent = `Total planilha: ${diagnostico.total} | Segmento BC: ${diagnostico.segmentoBC} | Acond. vazio: ${diagnostico.acondVazio} | Data válida: ${diagnostico.dataValida} | Janela 22h-06h: ${diagnostico.horarioNoturno} | Registros finais: 0`;
+        alert("Nenhuma carga encontrada com os filtros aplicados (BC + acondicionamento vazio + 22h às 06h). Veja a linha de diagnóstico abaixo do upload para entender em qual etapa os registros foram filtrados.");
         return;
     }
 
@@ -187,7 +203,7 @@ function processar(linhas) {
         <div class="kpi">NF Emitida<b>${stats.nfEmitida.qtd}</b></div>
     `;
 
-    debug.textContent = `Registros filtrados: ${totalQtd} | Último processamento: ${new Date().toLocaleString('pt-BR')}`;
+    debug.textContent = `Total planilha: ${diagnostico.total} | Segmento BC: ${diagnostico.segmentoBC} | Acond. vazio: ${diagnostico.acondVazio} | Data válida: ${diagnostico.dataValida} | Janela 22h-06h: ${diagnostico.horarioNoturno} | Registros finais: ${totalQtd}`;
     document.getElementById('resultado').style.display = 'block';
     document.getElementById('config').style.display = 'block';
     desenharGrafico(stats);
@@ -238,6 +254,12 @@ function padronizarCabecalhos(linhas) {
         });
         return novaLinha;
     });
+}
+
+
+function isCampoVazio(valor) {
+    const texto = String(valor ?? '').trim().toUpperCase();
+    return texto === '' || texto === '-' || texto === '—' || texto === 'N/A' || texto === 'NA' || texto === 'NULL';
 }
 
 function parsePesoKg(valor) {
