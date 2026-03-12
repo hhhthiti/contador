@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório de Cargas BC</title>
+    <title>Dashboard de Cargas BC</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -16,6 +16,9 @@
         .controles { display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
         .btn { background: #28a745; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         #debug-info { font-family: monospace; font-size: 11px; color: #666; margin-top: 10px; }
+        .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 15px; }
+        .kpi { background: #004a99; color: #fff; border-radius: 6px; padding: 10px; }
+        .kpi b { display: block; font-size: 1.2rem; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -27,19 +30,20 @@
     <div id="debug-info"></div>
     
     <div id="config" class="controles">
-        <p><strong>Filtros ativos:</strong> Segmento BC | Status Permitidos | Entre Ontem 22h e Hoje 06h</p>
+        <p><strong>Filtros ativos:</strong> Segmento BC | Acondicionamento vazio | Autorização de encosta entre 22:00 e 06:00</p>
         <div style="margin-bottom: 10px;">
-            <label><input type="checkbox" class="toggle-col" data-col="0" checked> DT</label>
-            <label><input type="checkbox" class="toggle-col" data-col="1" checked> Tipo</label>
-            <label><input type="checkbox" class="toggle-col" data-col="2" checked> Peso</label>
-            <label><input type="checkbox" class="toggle-col" data-col="3" checked> Status</label>
-            <label><input type="checkbox" class="toggle-col" data-col="5" checked> Doca</label>
+            <label><input type="checkbox" class="toggle-col" data-col="0" checked> Documento</label>
+            <label><input type="checkbox" class="toggle-col" data-col="1" checked> Peso (ton)</label>
+            <label><input type="checkbox" class="toggle-col" data-col="2" checked> Situação NF</label>
+            <label><input type="checkbox" class="toggle-col" data-col="3" checked> Autorização de encosta</label>
+            <label><input type="checkbox" class="toggle-col" data-col="4" checked> Status atual</label>
         </div>
         <button class="btn" onclick="baixarFoto()">Exportar PNG</button>
     </div>
 </div>
 
 <div id="resultado" style="display:none;">
+    <div class="card resumo" id="resumo"></div>
     <div class="card">
         <canvas id="graficoBarras" style="max-height: 300px;"></canvas>
     </div>
@@ -47,13 +51,11 @@
         <table id="tabela-dados">
             <thead>
                 <tr>
-                    <th class="c0">DT (Doc)</th>
-                    <th class="c1">Tipo Carga</th>
-                    <th class="c2">Peso (Kg)</th>
-                    <th class="c3">Status</th>
-                    <th class="c4">NF Solic.</th>
-                    <th class="c5">Doca</th>
-                    <th class="c6">Encosta (Q)</th>
+                    <th class="c0">Documento</th>
+                    <th class="c1">Peso (ton)</th>
+                    <th class="c2">Situação NF</th>
+                    <th class="c3">Autorização de encosta</th>
+                    <th class="c4">Status atual</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -91,64 +93,92 @@ document.getElementById('upload').addEventListener('change', function(e) {
 
 function processar(linhas) {
     const tbody = document.querySelector('#tabela-dados tbody');
+    const resumoDiv = document.getElementById('resumo');
+    const erroDiv = document.getElementById('mensagem-erro');
+    const debug = document.getElementById('debug-info');
     tbody.innerHTML = "";
-    
-    // Configuração do Turno
-    const agora = new Date();
-    const ontem22h = new Date(agora);
-    ontem22h.setDate(agora.getDate() - 1);
-    ontem22h.setHours(22, 0, 0, 0);
-    
-    const hoje06h = new Date(agora);
-    hoje06h.setHours(6, 0, 0, 0);
 
-    let stats = { palet: { q: 0, p: 0 }, estiv: { q: 0, p: 0 } };
-    const statusValidos = ["Operação Abandonada","NF Emitida","Finalizado","Faturamento Iniciado","Descarga Concluída","Carregamento Concluído"];
+    const colunasObrigatorias = [
+        'SEGMENTO',
+        'ACONDICIONAMENTO',
+        'DOCUMENTO',
+        'PESO',
+        'AUTORIZAÇÃO DE ENCOSTA',
+        'NF SOLICITADA',
+        'NF EMITIDA',
+        'STATUS ATUAL'
+    ];
 
-    linhas.forEach((row, i) => {
-        if(i === 0) return; // Pula cabeçalho
-
-        // 1. Filtro Segmento (D)
-        if (String(row.D).trim().toUpperCase() !== "BC") return;
-
-        // 2. Filtro Status (N)
-        if (!statusValidos.includes(String(row.N).trim())) return;
-
-        // 3. Filtro de Horário (Q)
-        let dataQ = row.Q;
-        // Se a data vier como número do Excel, converte
-        if (typeof dataQ === 'number') dataQ = XLSX.SSF.parse_date_code(dataQ);
-        const dataEncosta = new Date(dataQ);
-
-        if (isNaN(dataEncosta.getTime()) || dataEncosta < ontem22h || dataEncosta > hoje06h) return;
-
-        // 4. Captura de Dados
-        const peso = parseFloat(String(row.L).replace(/\./g, '').replace(',', '.')) || 0;
-        const tipo = String(row.B).toUpperCase().includes("PALET") ? "PALETIZADA" : "ESTIVADA";
-        
-        // Montar Linha
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="c0">${row.J || '-'}</td>
-            <td class="c1">${tipo}</td>
-            <td class="c2">${peso.toLocaleString('pt-BR')}</td>
-            <td class="c3">${row.N}</td>
-            <td class="c4">${row.V ? 'OK' : '-'}</td>
-            <td class="c5">${row.AA || '-'}</td>
-            <td class="c6">${dataEncosta.toLocaleString('pt-BR')}</td>
-        `;
-        tbody.appendChild(tr);
-
-        // Somar Gráfico
-        if(tipo === "PALETIZADA") { stats.palet.q++; stats.palet.p += peso; }
-        else { stats.estiv.q++; stats.estiv.p += peso; }
-    });
-
-    if(tbody.rows.length === 0) {
-        alert("Nenhuma DT encontrada para este turno (22h-06h) no segmento BC.");
+    const header = Object.keys(linhas[0] || {});
+    const faltando = colunasObrigatorias.filter(col => !header.includes(col));
+    if (faltando.length) {
+        erroDiv.innerHTML = `Colunas não encontradas: ${faltando.join(', ')}`;
+        erroDiv.style.display = 'block';
+        debug.textContent = `Cabeçalho lido: ${header.join(' | ')}`;
         return;
     }
 
+    let stats = {
+        nfSolicitada: { qtd: 0, peso: 0 },
+        nfEmitida: { qtd: 0, peso: 0 },
+        restante: { qtd: 0, peso: 0 }
+    };
+
+    linhas.forEach((row) => {
+        if (String(row['SEGMENTO'] || '').trim().toUpperCase() !== 'BC') return;
+        if (String(row['ACONDICIONAMENTO'] || '').trim() !== '') return;
+
+        const dataEncosta = parseExcelDate(row['AUTORIZAÇÃO DE ENCOSTA']);
+        if (!dataEncosta || !isHorarioNoturno(dataEncosta)) return;
+
+        const documento = String(row['DOCUMENTO'] || '-').trim() || '-';
+        const pesoKg = parsePesoKg(row['PESO']);
+        const pesoTon = pesoKg / 1000;
+        const statusAtual = String(row['STATUS ATUAL'] || '-').trim() || '-';
+
+        const nfSolicitada = !!row['NF SOLICITADA'];
+        const nfEmitida = !!row['NF EMITIDA'];
+        let situacao = 'Restante';
+        if (nfEmitida) situacao = 'NF Emitida';
+        else if (nfSolicitada) situacao = 'NF Solicitada';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="c0">${documento}</td>
+            <td class="c1">${pesoTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
+            <td class="c2">${situacao}</td>
+            <td class="c3">${dataEncosta.toLocaleString('pt-BR')}</td>
+            <td class="c4">${statusAtual}</td>
+        `;
+        tbody.appendChild(tr);
+
+        if (situacao === 'NF Emitida') {
+            stats.nfEmitida.qtd++;
+            stats.nfEmitida.peso += pesoTon;
+        } else if (situacao === 'NF Solicitada') {
+            stats.nfSolicitada.qtd++;
+            stats.nfSolicitada.peso += pesoTon;
+        } else {
+            stats.restante.qtd++;
+            stats.restante.peso += pesoTon;
+        }
+    });
+
+    if(tbody.rows.length === 0) {
+        alert("Nenhuma carga encontrada com os filtros aplicados (BC + acondicionamento vazio + 22h às 06h).");
+        return;
+    }
+
+    const totalQtd = stats.nfSolicitada.qtd + stats.nfEmitida.qtd + stats.restante.qtd;
+    const totalPeso = stats.nfSolicitada.peso + stats.nfEmitida.peso + stats.restante.peso;
+    resumoDiv.innerHTML = `
+        <div class="kpi">Total de cargas<b>${totalQtd}</b></div>
+        <div class="kpi">Total em toneladas<b>${totalPeso.toLocaleString('pt-BR', {maximumFractionDigits: 2})}</b></div>
+        <div class="kpi">NF Solicitada<b>${stats.nfSolicitada.qtd}</b></div>
+        <div class="kpi">NF Emitida<b>${stats.nfEmitida.qtd}</b></div>
+    `;
+
+    debug.textContent = `Registros filtrados: ${totalQtd} | Último processamento: ${new Date().toLocaleString('pt-BR')}`;
     document.getElementById('resultado').style.display = 'block';
     document.getElementById('config').style.display = 'block';
     desenharGrafico(stats);
@@ -161,18 +191,53 @@ function desenharGrafico(s) {
     meuGrafico = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Paletizada', 'Estivada'],
+            labels: ['NF Solicitada', 'NF Emitida', 'Restante'],
             datasets: [{
-                label: 'Qtd DTs',
-                data: [s.palet.q, s.estiv.q],
-                backgroundColor: '#004a99'
+                label: 'Quantidade',
+                data: [s.nfSolicitada.qtd, s.nfEmitida.qtd, s.restante.qtd],
+                backgroundColor: ['#f39c12', '#2e7d32', '#546e7a']
             }, {
                 label: 'Peso Total (ton)',
-                data: [s.palet.p / 1000, s.estiv.p / 1000],
-                backgroundColor: '#cf0000'
+                data: [s.nfSolicitada.peso, s.nfEmitida.peso, s.restante.peso],
+                backgroundColor: ['#ffd180', '#81c784', '#b0bec5']
             }]
         }
     });
+}
+
+function parsePesoKg(valor) {
+    if (typeof valor === 'number') return valor;
+    if (!valor) return 0;
+    const limpo = String(valor)
+        .replace(/\s*kg/i, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+    return parseFloat(limpo) || 0;
+}
+
+function parseExcelDate(valor) {
+    if (valor instanceof Date) return valor;
+    if (typeof valor === 'number') {
+        const d = XLSX.SSF.parse_date_code(valor);
+        if (!d) return null;
+        return new Date(d.y, d.m - 1, d.d, d.H, d.M, d.S);
+    }
+    if (!valor) return null;
+
+    const texto = String(valor).trim();
+    const match = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+    if (match) {
+        const [, dd, mm, yyyy, hh, mi, ss = '00'] = match;
+        return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), Number(ss));
+    }
+
+    const data = new Date(texto);
+    return isNaN(data.getTime()) ? null : data;
+}
+
+function isHorarioNoturno(data) {
+    const hora = data.getHours();
+    return hora >= 22 || hora < 6;
 }
 
 function baixarFoto() {
