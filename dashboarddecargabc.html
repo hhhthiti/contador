@@ -1,247 +1,257 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard de Cargas BC</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard CSV de DTs - JSL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial; background: #f0f2f5; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .erro { color: #d32f2f; background: #ffcdd2; padding: 10px; border-radius: 4px; display: none; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; font-size: 13px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background: #004a99; color: white; }
-        .controles { display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
-        .btn { background: #28a745; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        #debug-info { font-family: monospace; font-size: 11px; color: #666; margin-top: 10px; }
-        .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 15px; }
-        .kpi { background: #004a99; color: #fff; border-radius: 6px; padding: 10px; }
-        .kpi b { display: block; font-size: 1.2rem; margin-top: 4px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f6; margin: 0; padding: 20px; }
+        .container { max-width: 980px; margin: 0 auto; }
+        .card { background: #fff; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); padding: 18px; margin-bottom: 18px; }
+        h1 { margin: 0 0 8px 0; color: #c8102e; font-size: 1.4rem; }
+        .hint { color: #555; font-size: 0.92rem; margin-bottom: 12px; }
+        input[type="file"], textarea { width: 100%; box-sizing: border-box; }
+        textarea { min-height: 120px; resize: vertical; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; font-family: monospace; }
+        .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+        button { border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: #0056b3; color: white; }
+        .btn-success { background: #198754; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .erro { background: #ffd9dd; color: #8b0000; padding: 8px; border-radius: 6px; margin-top: 10px; display: none; }
+        .debug { font-family: monospace; font-size: 0.82rem; color: #444; margin-top: 8px; }
+
+        #resultado { display: none; }
+        .header-relatorio { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #c8102e; padding-bottom: 12px; margin-bottom: 14px; }
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .kpi { background: #003f88; color: #fff; border-radius: 8px; padding: 12px; }
+        .kpi span { display: block; opacity: 0.9; font-size: 0.85rem; }
+        .kpi b { font-size: 1.2rem; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { border: 1px solid #d7d7d7; padding: 8px; text-align: left; }
+        th { background: #003f88; color: #fff; }
+        tr:nth-child(even) { background: #f9fbff; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <h2>Upload da Planilha de Cargas</h2>
-    <div id="mensagem-erro" class="erro"></div>
-    <input type="file" id="upload" accept=".xlsx, .xls" />
-    <div id="debug-info"></div>
-    
-    <div id="config" class="controles">
-        <p><strong>Filtros ativos:</strong> Segmento BC | Acondicionamento vazio | Autorização de encosta entre 22:00 e 06:00</p>
-        <div style="margin-bottom: 10px;">
-            <label><input type="checkbox" class="toggle-col" data-col="0" checked> Documento</label>
-            <label><input type="checkbox" class="toggle-col" data-col="1" checked> Peso (ton)</label>
-            <label><input type="checkbox" class="toggle-col" data-col="2" checked> Situação NF</label>
-            <label><input type="checkbox" class="toggle-col" data-col="3" checked> Autorização de encosta</label>
-            <label><input type="checkbox" class="toggle-col" data-col="4" checked> Status atual</label>
-        </div>
-        <button class="btn" onclick="baixarFoto()">Exportar PNG</button>
-    </div>
-</div>
-
-<div id="resultado" style="display:none;">
-    <div class="card resumo" id="resumo"></div>
+<div class="container">
     <div class="card">
-        <canvas id="graficoBarras" style="max-height: 300px;"></canvas>
+        <h1>Dashboard de DTs por CSV (JSL)</h1>
+        <div class="hint">Suba o CSV com as colunas da operação e informe os números das DTs/Documentos para buscar na coluna <b>DOCUMENTO</b> (coluna I). O peso será lido da coluna <b>PESO</b> (coluna J).</div>
+
+        <label><b>1) Arquivo CSV</b></label>
+        <input type="file" id="uploadCsv" accept=".csv,text/csv" />
+
+        <label style="display:block; margin-top:12px;"><b>2) Lista de DTs/Documentos</b> (um por linha, ou separados por vírgula/espaço)</label>
+        <textarea id="inputDts" placeholder="Exemplo:\n22785713\n22785714\n22785715"></textarea>
+
+        <div class="btns">
+            <button class="btn-primary" onclick="gerarDashboard()">Gerar Dashboard</button>
+            <button class="btn-success" id="btnSalvar" style="display:none" onclick="salvarImagem()">Salvar imagem (WhatsApp)</button>
+            <button class="btn-secondary" onclick="limparTela()">Limpar</button>
+        </div>
+
+        <div id="erro" class="erro"></div>
+        <div id="debug" class="debug"></div>
     </div>
-    <div class="card" id="tabela-print">
-        <table id="tabela-dados">
-            <thead>
-                <tr>
-                    <th class="c0">Documento</th>
-                    <th class="c1">Peso (ton)</th>
-                    <th class="c2">Situação NF</th>
-                    <th class="c3">Autorização de encosta</th>
-                    <th class="c4">Status atual</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+
+    <div id="resultado" class="card">
+        <div id="areaPrint">
+            <div class="header-relatorio">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/JSL_Logo.png/640px-JSL_Logo.png" alt="Logo JSL" height="44" />
+                <div style="text-align:right">
+                    <div style="font-weight:700; color:#c8102e;">RESUMO DE DTs</div>
+                    <small id="dataHoje"></small>
+                </div>
+            </div>
+
+            <div class="kpis">
+                <div class="kpi"><span>Quantidade de carros</span><b id="kpiCarros">0</b></div>
+                <div class="kpi"><span>Total toneladas</span><b id="kpiToneladas">0</b></div>
+                <div class="kpi"><span>DTs encontradas</span><b id="kpiEncontradas">0</b></div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Documento (I)</th>
+                        <th>Peso original (J)</th>
+                        <th>Peso (ton)</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyResultado"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <script>
-let meuGrafico = null;
+let dadosCsv = [];
 
-document.getElementById('upload').addEventListener('change', function(e) {
+function showError(msg) {
+    const el = document.getElementById('erro');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+function clearError() {
+    const el = document.getElementById('erro');
+    el.textContent = '';
+    el.style.display = 'none';
+}
+
+document.getElementById('uploadCsv').addEventListener('change', async (e) => {
+    clearError();
+    document.getElementById('debug').textContent = 'Lendo CSV...';
+
     const file = e.target.files[0];
-    const reader = new FileReader();
-    const erroDiv = document.getElementById('mensagem-erro');
-    const debug = document.getElementById('debug-info');
-    
-    erroDiv.style.display = 'none';
-    debug.innerHTML = "Lendo arquivo...";
+    if (!file) return;
 
-    reader.onload = function(event) {
-        try {
-            const data = new Uint8Array(event.target.result);
-            const workbook = XLSX.read(data, {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy hh:mm'});
-            const aba = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(aba, {defval: ''});
+    const texto = await file.text();
+    dadosCsv = parseCsv(texto);
 
-            processar(json);
-        } catch (err) {
-            erroDiv.innerHTML = "Erro ao ler Excel: " + err;
-            erroDiv.style.display = 'block';
-        }
-    };
-    reader.readAsArrayBuffer(file);
+    if (!dadosCsv.length) {
+        showError('Não foi possível ler linhas do CSV.');
+        document.getElementById('debug').textContent = '';
+        return;
+    }
+
+    const cols = Object.keys(dadosCsv[0]);
+    document.getElementById('debug').textContent = `CSV carregado: ${dadosCsv.length} linhas | Colunas: ${cols.join(' | ')}`;
 });
 
-function processar(linhas) {
-    const tbody = document.querySelector('#tabela-dados tbody');
-    const resumoDiv = document.getElementById('resumo');
-    const erroDiv = document.getElementById('mensagem-erro');
-    const debug = document.getElementById('debug-info');
-    tbody.innerHTML = "";
+function parseCsv(texto) {
+    const linhas = texto.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim() !== '');
+    if (!linhas.length) return [];
 
-    const colunasObrigatorias = [
-        'SEGMENTO',
-        'ACONDICIONAMENTO',
-        'DOCUMENTO',
-        'PESO',
-        'AUTORIZAÇÃO DE ENCOSTA',
-        'NF SOLICITADA',
-        'NF EMITIDA',
-        'STATUS ATUAL'
-    ];
+    const delimitador = detectarDelimitador(linhas[0]);
+    const cabecalho = parseLinhaCsv(linhas[0], delimitador).map(c => c.trim());
 
-    const linhasPadronizadas = padronizarCabecalhos(linhas);
-    if (!linhasPadronizadas.length) {
-        erroDiv.innerHTML = 'A planilha está vazia ou sem linhas de dados.';
-        erroDiv.style.display = 'block';
-        debug.textContent = '';
-        return;
+    const resultado = [];
+    for (let i = 1; i < linhas.length; i++) {
+        const valores = parseLinhaCsv(linhas[i], delimitador);
+        if (!valores.length) continue;
+
+        const obj = {};
+        for (let c = 0; c < cabecalho.length; c++) {
+            obj[cabecalho[c]] = (valores[c] ?? '').trim();
+        }
+        resultado.push(obj);
     }
-    const header = Object.keys(linhasPadronizadas[0] || {});
-    const faltando = colunasObrigatorias.filter(col => !header.includes(col));
-    if (faltando.length) {
-        erroDiv.innerHTML = `Colunas não encontradas: ${faltando.join(', ')}`;
-        erroDiv.style.display = 'block';
-        debug.textContent = `Cabeçalho lido: ${header.join(' | ')}`;
-        return;
+    return resultado;
+}
+
+function detectarDelimitador(linha) {
+    const candidatos = [';', ',', '\t'];
+    let melhor = ';';
+    let maior = -1;
+    for (const d of candidatos) {
+        const qtd = parseLinhaCsv(linha, d).length;
+        if (qtd > maior) {
+            maior = qtd;
+            melhor = d;
+        }
     }
+    return melhor;
+}
 
-    erroDiv.style.display = 'none';
+function parseLinhaCsv(linha, delimitador) {
+    const out = [];
+    let atual = '';
+    let emAspas = false;
 
-    let stats = {
-        nfSolicitada: { qtd: 0, peso: 0 },
-        nfEmitida: { qtd: 0, peso: 0 },
-        restante: { qtd: 0, peso: 0 }
-    };
+    for (let i = 0; i < linha.length; i++) {
+        const ch = linha[i];
 
-    const diagnostico = {
-        total: linhasPadronizadas.length,
-        segmentoBC: 0,
-        acondVazio: 0,
-        dataValida: 0,
-        horarioNoturno: 0,
-        datasInvalidasExemplo: []
-    };
-
-    linhasPadronizadas.forEach((row) => {
-        if (String(row['SEGMENTO'] || '').trim().toUpperCase() !== 'BC') return;
-        diagnostico.segmentoBC++;
-
-        if (!isCampoVazio(row['ACONDICIONAMENTO'])) return;
-        diagnostico.acondVazio++;
-
-        const valorEncosta = row['AUTORIZAÇÃO DE ENCOSTA'];
-        const dataEncosta = parseExcelDate(valorEncosta);
-        if (!dataEncosta) {
-            if (diagnostico.datasInvalidasExemplo.length < 3) {
-                diagnostico.datasInvalidasExemplo.push(String(valorEncosta));
+        if (ch === '"') {
+            if (emAspas && linha[i + 1] === '"') {
+                atual += '"';
+                i++;
+            } else {
+                emAspas = !emAspas;
             }
-            return;
+            continue;
         }
-        diagnostico.dataValida++;
 
-        if (!isHorarioNoturno(dataEncosta)) return;
-        diagnostico.horarioNoturno++;
-
-        const documento = String(row['DOCUMENTO'] || '-').trim() || '-';
-        const pesoKg = parsePesoKg(row['PESO']);
-        const pesoTon = pesoKg / 1000;
-        const statusAtual = String(row['STATUS ATUAL'] || '-').trim() || '-';
-
-        const nfSolicitada = !!row['NF SOLICITADA'];
-        const nfEmitida = !!row['NF EMITIDA'];
-        let situacao = 'Restante';
-        if (nfEmitida) situacao = 'NF Emitida';
-        else if (nfSolicitada) situacao = 'NF Solicitada';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="c0">${documento}</td>
-            <td class="c1">${pesoTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
-            <td class="c2">${situacao}</td>
-            <td class="c3">${dataEncosta.toLocaleString('pt-BR')}</td>
-            <td class="c4">${statusAtual}</td>
-        `;
-        tbody.appendChild(tr);
-
-        if (situacao === 'NF Emitida') {
-            stats.nfEmitida.qtd++;
-            stats.nfEmitida.peso += pesoTon;
-        } else if (situacao === 'NF Solicitada') {
-            stats.nfSolicitada.qtd++;
-            stats.nfSolicitada.peso += pesoTon;
-        } else {
-            stats.restante.qtd++;
-            stats.restante.peso += pesoTon;
+        if (ch === delimitador && !emAspas) {
+            out.push(atual);
+            atual = '';
+            continue;
         }
-    });
 
-    if(tbody.rows.length === 0) {
-        const exemplosDatas = diagnostico.datasInvalidasExemplo.length ? ` | Exemplos data inválida: ${diagnostico.datasInvalidasExemplo.join(' ; ')}` : '';
-        debug.textContent = `Total planilha: ${diagnostico.total} | Segmento BC: ${diagnostico.segmentoBC} | Acond. vazio: ${diagnostico.acondVazio} | Data válida: ${diagnostico.dataValida} | Janela 22h-06h: ${diagnostico.horarioNoturno} | Registros finais: 0${exemplosDatas}`;
-        alert("Nenhuma carga encontrada com os filtros aplicados (BC + acondicionamento vazio + 22h às 06h). Veja a linha de diagnóstico abaixo do upload para entender em qual etapa os registros foram filtrados.");
+        atual += ch;
+    }
+    out.push(atual);
+    return out;
+}
+
+function gerarDashboard() {
+    clearError();
+
+    if (!dadosCsv.length) {
+        showError('Primeiro, faça upload de um CSV.');
         return;
     }
 
-    const totalQtd = stats.nfSolicitada.qtd + stats.nfEmitida.qtd + stats.restante.qtd;
-    const totalPeso = stats.nfSolicitada.peso + stats.nfEmitida.peso + stats.restante.peso;
-    resumoDiv.innerHTML = `
-        <div class="kpi">Total de cargas<b>${totalQtd}</b></div>
-        <div class="kpi">Total em toneladas<b>${totalPeso.toLocaleString('pt-BR', {maximumFractionDigits: 2})}</b></div>
-        <div class="kpi">NF Solicitada<b>${stats.nfSolicitada.qtd}</b></div>
-        <div class="kpi">NF Emitida<b>${stats.nfEmitida.qtd}</b></div>
-    `;
+    const docs = extrairDocumentosInput(document.getElementById('inputDts').value);
+    if (!docs.length) {
+        showError('Informe pelo menos um número de DT/Documento no campo de texto.');
+        return;
+    }
 
-    const exemplosDatas = diagnostico.datasInvalidasExemplo.length ? ` | Exemplos data inválida: ${diagnostico.datasInvalidasExemplo.join(' ; ')}` : '';
-    debug.textContent = `Total planilha: ${diagnostico.total} | Segmento BC: ${diagnostico.segmentoBC} | Acond. vazio: ${diagnostico.acondVazio} | Data válida: ${diagnostico.dataValida} | Janela 22h-06h: ${diagnostico.horarioNoturno} | Registros finais: ${totalQtd}${exemplosDatas}`;
-    document.getElementById('resultado').style.display = 'block';
-    document.getElementById('config').style.display = 'block';
-    desenharGrafico(stats);
-}
+    const colDocumento = encontrarColuna(dadosCsv[0], ['DOCUMENTO']);
+    const colPeso = encontrarColuna(dadosCsv[0], ['PESO']);
 
-function desenharGrafico(s) {
-    const ctx = document.getElementById('graficoBarras').getContext('2d');
-    if(meuGrafico) meuGrafico.destroy();
-    
-    meuGrafico = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['NF Solicitada', 'NF Emitida', 'Restante'],
-            datasets: [{
-                label: 'Quantidade',
-                data: [s.nfSolicitada.qtd, s.nfEmitida.qtd, s.restante.qtd],
-                backgroundColor: ['#f39c12', '#2e7d32', '#546e7a']
-            }, {
-                label: 'Peso Total (ton)',
-                data: [s.nfSolicitada.peso, s.nfEmitida.peso, s.restante.peso],
-                backgroundColor: ['#ffd180', '#81c784', '#b0bec5']
-            }]
-        }
+    if (!colDocumento || !colPeso) {
+        showError('Colunas obrigatórias não encontradas no CSV: DOCUMENTO e PESO.');
+        return;
+    }
+
+    const setDocs = new Set(docs);
+    const encontrados = [];
+
+    dadosCsv.forEach((linha) => {
+        const doc = apenasDigitos(linha[colDocumento]);
+        if (!doc || !setDocs.has(doc)) return;
+
+        const pesoKg = parsePesoKg(linha[colPeso]);
+        encontrados.push({
+            documento: doc,
+            pesoOriginal: linha[colPeso],
+            pesoTon: pesoKg / 1000
+        });
     });
+
+    renderResultado(encontrados, docs.length);
 }
 
+function extrairDocumentosInput(texto) {
+    return [...new Set((texto || '')
+        .split(/[\s,;\n\r\t]+/)
+        .map(apenasDigitos)
+        .filter(Boolean))];
+}
 
-function normalizarTextoCabecalho(texto) {
-    return String(texto || '')
+function apenasDigitos(v) {
+    return String(v || '').replace(/\D/g, '');
+}
+
+function encontrarColuna(obj, nomes) {
+    const mapa = Object.keys(obj || {}).reduce((acc, k) => {
+        acc[normalizar(k)] = k;
+        return acc;
+    }, {});
+
+    for (const nome of nomes) {
+        const achou = mapa[normalizar(nome)];
+        if (achou) return achou;
+    }
+    return null;
+}
+
+function normalizar(s) {
+    return String(s || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toUpperCase()
@@ -249,98 +259,73 @@ function normalizarTextoCabecalho(texto) {
         .trim();
 }
 
-function padronizarCabecalhos(linhas) {
-    const alias = {
-        'AUTORIZACAO DE ENCOSTA': 'AUTORIZAÇÃO DE ENCOSTA'
-    };
-
-    return (linhas || []).map((linha) => {
-        const novaLinha = {};
-        Object.entries(linha || {}).forEach(([chave, valor]) => {
-            const normalizada = normalizarTextoCabecalho(chave);
-            const corrigida = alias[normalizada] || normalizada;
-            novaLinha[corrigida] = valor;
-        });
-        return novaLinha;
-    });
-}
-
-
-function isCampoVazio(valor) {
-    const texto = String(valor ?? '').trim().toUpperCase();
-    return texto === '' || texto === '-' || texto === '—' || texto === 'N/A' || texto === 'NA' || texto === 'NULL';
-}
-
 function parsePesoKg(valor) {
     if (typeof valor === 'number') return valor;
-    if (!valor) return 0;
-    const limpo = String(valor)
-        .replace(/\s*kg/i, '')
+    const txt = String(valor || '').trim();
+    if (!txt) return 0;
+
+    const limpo = txt
+        .replace(/kg/ig, '')
+        .replace(/\s/g, '')
         .replace(/\./g, '')
         .replace(',', '.');
-    return parseFloat(limpo) || 0;
+
+    const n = Number(limpo);
+    return Number.isFinite(n) ? n : 0;
 }
 
-function parseExcelDate(valor) {
-    if (valor instanceof Date) {
-        return isNaN(valor.getTime()) ? null : valor;
+function renderResultado(encontrados, totalSolicitados) {
+    const tbody = document.getElementById('tbodyResultado');
+    tbody.innerHTML = '';
+
+    if (!encontrados.length) {
+        document.getElementById('resultado').style.display = 'none';
+        showError('Nenhum documento informado foi encontrado na coluna DOCUMENTO do CSV.');
+        document.getElementById('debug').textContent = `Solicitados: ${totalSolicitados} | Encontrados: 0`;
+        return;
     }
 
-    if (typeof valor === 'number') {
-        const d = XLSX.SSF.parse_date_code(valor);
-        if (!d) return null;
-        return new Date(d.y, d.m - 1, d.d, d.H || 0, d.M || 0, d.S || 0);
-    }
-
-    if (valor && typeof valor === 'object' && 'y' in valor && 'm' in valor && 'd' in valor) {
-        return new Date(valor.y, valor.m - 1, valor.d, valor.H || 0, valor.M || 0, valor.S || 0);
-    }
-
-    if (valor === null || valor === undefined) return null;
-
-    let texto = String(valor).trim();
-    if (!texto || texto === '-' || texto === '—') return null;
-
-    texto = texto.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
-
-    if (/^\d+(?:[.,]\d+)?$/.test(texto)) {
-        const numero = Number(texto.replace(',', '.'));
-        if (!Number.isNaN(numero)) {
-            const d = XLSX.SSF.parse_date_code(numero);
-            if (d) return new Date(d.y, d.m - 1, d.d, d.H || 0, d.M || 0, d.S || 0);
-        }
-    }
-
-    const match = texto.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (match) {
-        const [, dd, mm, yyyy, hh = '0', mi = '0', ss = '0'] = match;
-        const data = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), Number(ss));
-        return isNaN(data.getTime()) ? null : data;
-    }
-
-    const iso = texto.replace(' ', 'T');
-    const data = new Date(iso);
-    return isNaN(data.getTime()) ? null : data;
-}
-
-function isHorarioNoturno(data) {
-    const hora = data.getHours();
-    return hora >= 22 || hora < 6;
-}
-
-function baixarFoto() {
-    // Esconder colunas não selecionadas
-    document.querySelectorAll('.toggle-col').forEach(chk => {
-        const colClass = '.c' + chk.dataset.col;
-        document.querySelectorAll(colClass).forEach(el => el.style.display = chk.checked ? '' : 'none');
+    let totalTon = 0;
+    encontrados.forEach((item) => {
+        totalTon += item.pesoTon;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${item.documento}</td>
+            <td>${item.pesoOriginal || '-'}</td>
+            <td>${item.pesoTon.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 3})}</td>
+        `;
+        tbody.appendChild(tr);
     });
 
-    html2canvas(document.getElementById('resultado')).then(canvas => {
+    document.getElementById('kpiCarros').textContent = encontrados.length.toLocaleString('pt-BR');
+    document.getElementById('kpiToneladas').textContent = totalTon.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('kpiEncontradas').textContent = `${encontrados.length}/${totalSolicitados}`;
+    document.getElementById('dataHoje').textContent = `Gerado em ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`;
+
+    document.getElementById('resultado').style.display = 'block';
+    document.getElementById('btnSalvar').style.display = 'inline-block';
+    document.getElementById('debug').textContent = `Solicitados: ${totalSolicitados} | Encontrados: ${encontrados.length}`;
+}
+
+function salvarImagem() {
+    const area = document.getElementById('areaPrint');
+    html2canvas(area, { scale: 2, useCORS: true, logging: false }).then((canvas) => {
         const link = document.createElement('a');
-        link.download = 'Relatorio_Turno_BC.png';
-        link.href = canvas.toDataURL();
+        link.download = `Dashboard_DTs_JSL_${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
         link.click();
     });
+}
+
+function limparTela() {
+    document.getElementById('uploadCsv').value = '';
+    document.getElementById('inputDts').value = '';
+    document.getElementById('tbodyResultado').innerHTML = '';
+    document.getElementById('resultado').style.display = 'none';
+    document.getElementById('btnSalvar').style.display = 'none';
+    document.getElementById('debug').textContent = '';
+    clearError();
+    dadosCsv = [];
 }
 </script>
 </body>
