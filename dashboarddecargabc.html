@@ -80,8 +80,8 @@ document.getElementById('upload').addEventListener('change', function(e) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, {type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy hh:mm'});
             const aba = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(aba, {header: "A"});
-            
+            const json = XLSX.utils.sheet_to_json(aba, {defval: ''});
+
             processar(json);
         } catch (err) {
             erroDiv.innerHTML = "Erro ao ler Excel: " + err;
@@ -109,7 +109,14 @@ function processar(linhas) {
         'STATUS ATUAL'
     ];
 
-    const header = Object.keys(linhas[0] || {});
+    const linhasPadronizadas = padronizarCabecalhos(linhas);
+    if (!linhasPadronizadas.length) {
+        erroDiv.innerHTML = 'A planilha está vazia ou sem linhas de dados.';
+        erroDiv.style.display = 'block';
+        debug.textContent = '';
+        return;
+    }
+    const header = Object.keys(linhasPadronizadas[0] || {});
     const faltando = colunasObrigatorias.filter(col => !header.includes(col));
     if (faltando.length) {
         erroDiv.innerHTML = `Colunas não encontradas: ${faltando.join(', ')}`;
@@ -118,13 +125,15 @@ function processar(linhas) {
         return;
     }
 
+    erroDiv.style.display = 'none';
+
     let stats = {
         nfSolicitada: { qtd: 0, peso: 0 },
         nfEmitida: { qtd: 0, peso: 0 },
         restante: { qtd: 0, peso: 0 }
     };
 
-    linhas.forEach((row) => {
+    linhasPadronizadas.forEach((row) => {
         if (String(row['SEGMENTO'] || '').trim().toUpperCase() !== 'BC') return;
         if (String(row['ACONDICIONAMENTO'] || '').trim() !== '') return;
 
@@ -202,6 +211,32 @@ function desenharGrafico(s) {
                 backgroundColor: ['#ffd180', '#81c784', '#b0bec5']
             }]
         }
+    });
+}
+
+
+function normalizarTextoCabecalho(texto) {
+    return String(texto || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function padronizarCabecalhos(linhas) {
+    const alias = {
+        'AUTORIZACAO DE ENCOSTA': 'AUTORIZAÇÃO DE ENCOSTA'
+    };
+
+    return (linhas || []).map((linha) => {
+        const novaLinha = {};
+        Object.entries(linha || {}).forEach(([chave, valor]) => {
+            const normalizada = normalizarTextoCabecalho(chave);
+            const corrigida = alias[normalizada] || normalizada;
+            novaLinha[corrigida] = valor;
+        });
+        return novaLinha;
     });
 }
 
