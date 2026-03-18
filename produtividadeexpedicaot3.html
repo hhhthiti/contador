@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Produtividade Expedição T3</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #eef2f7; padding: 20px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); padding: 16px; margin-bottom: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cf102d; padding-bottom: 10px; margin-bottom: 12px; }
+    .logos { display: flex; gap: 14px; align-items: center; }
+    .logos img { height: 38px; object-fit: contain; }
+    .title { color: #cf102d; font-weight: 700; }
+    .muted { color: #606b77; font-size: .9rem; }
+    textarea { width: 100%; min-height: 120px; resize: vertical; box-sizing: border-box; border: 1px solid #ccd4de; border-radius: 8px; padding: 10px; font-family: monospace; }
+    input[type=file] { width: 100%; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    button { border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #005bbb; color: #fff; }
+    .btn-success { background: #218838; color: #fff; }
+    .btn-gray { background: #6c757d; color: #fff; }
+    .erro { background: #ffd8dc; color: #8c0013; border-radius: 8px; padding: 8px; display: none; margin-top: 10px; }
+    .debug { font-family: monospace; font-size: .82rem; margin-top: 8px; color: #3f4b59; }
+
+    #painelResultado { display: none; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0; }
+    .kpi { background: #003f88; color: #fff; border-radius: 8px; padding: 10px; }
+    .kpi span { display:block; opacity: .85; font-size:.84rem; }
+    .kpi b { font-size: 1.2rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d8d8d8; padding: 8px; text-align: left; }
+    th { background: #003f88; color: #fff; }
+    tr:nth-child(even) { background: #f7faff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">PRODUTIVIDADE EXPEDIÇÃO T3</div>
+          <div class="muted">Suba uma planilha (CSV/XLSX) ou uma foto para OCR. Também pode colar texto.</div>
+        </div>
+        <div class="logos">
+          <img src="icons/JSL.png" alt="Logo JSL" />
+          <img src="icons/suzano.svg" alt="Logo Suzano" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label><b>Arquivo (planilha ou foto)</b></label>
+          <input type="file" id="arquivoInput" accept=".csv,.xlsx,.xls,image/*" />
+        </div>
+        <div>
+          <label><b>Status padrão</b></label>
+          <input type="text" id="statusPadrao" value="CARREGADO" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ccd4de; border-radius:8px;" />
+        </div>
+      </div>
+
+      <label style="display:block; margin-top:10px;"><b>Texto de apoio / OCR</b> (editável)</label>
+      <textarea id="textoBruto" placeholder="Cole aqui texto no formato: DT TIPO TONELADAS STATUS..."></textarea>
+
+      <div class="btns">
+        <button class="btn-primary" onclick="processarDados()">Processar</button>
+        <button class="btn-success" id="btnSalvar" style="display:none" onclick="salvarImagem()">Salvar imagem</button>
+        <button class="btn-gray" onclick="limparTudo()">Limpar</button>
+      </div>
+
+      <div id="erro" class="erro"></div>
+      <div id="debug" class="debug"></div>
+    </div>
+
+    <div id="painelResultado" class="card">
+      <div id="areaPrint">
+        <div class="header">
+          <div class="logos">
+            <img src="icons/JSL.png" alt="Logo JSL" />
+            <img src="icons/suzano.png" alt="Logo Suzano" />
+          </div>
+          <div style="text-align:right">
+            <div class="title" style="font-size: 1rem;">PRODUTIVIDADE EXPEDIÇÃO T3</div>
+            <small id="dataGeracao"></small>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><span>Quantidade de DTs</span><b id="kpiQtd">0</b></div>
+          <div class="kpi"><span>Total Toneladas</span><b id="kpiTon">0</b></div>
+          <div class="kpi"><span>Status</span><b id="kpiStatus">CARREGADO</b></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>DT</th>
+              <th>TIPO</th>
+              <th>TONELADAS</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+let dadosPlanilha = [];
+
+document.getElementById('arquivoInput').addEventListener('change', async (e) => {
+  limparErro();
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const nome = file.name.toLowerCase();
+  document.getElementById('debug').textContent = 'Lendo arquivo...';
+
+  if (nome.endsWith('.csv')) {
+    const txt = await file.text();
+    dadosPlanilha = csvParaObjetos(txt);
+    document.getElementById('debug').textContent = `CSV carregado: ${dadosPlanilha.length} linhas`;
+    return;
+  }
+
+  if (nome.endsWith('.xlsx') || nome.endsWith('.xls')) {
+    const buff = await file.arrayBuffer();
+    const wb = XLSX.read(buff, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    dadosPlanilha = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    document.getElementById('debug').textContent = `Planilha carregada: ${dadosPlanilha.length} linhas`;
+    return;
+  }
+
+  if (file.type.startsWith('image/')) {
+    document.getElementById('debug').textContent = 'Executando OCR na imagem...';
+    try {
+      const { data } = await Tesseract.recognize(file, 'por+eng');
+      document.getElementById('textoBruto').value = data.text || '';
+      document.getElementById('debug').textContent = 'OCR concluído. Revise o texto e clique em Processar.';
+    } catch (err) {
+      mostrarErro('Falha no OCR da imagem: ' + err);
+    }
+    return;
+  }
+
+  mostrarErro('Formato de arquivo não suportado. Use CSV, XLSX ou imagem.');
+});
+
+function processarDados() {
+  limparErro();
+  const statusPadrao = (document.getElementById('statusPadrao').value || 'CARREGADO').trim().toUpperCase();
+
+  let linhas = [];
+  if (dadosPlanilha.length) {
+    linhas = extrairDaPlanilha(dadosPlanilha, statusPadrao);
+  }
+
+  if (!linhas.length) {
+    const txt = document.getElementById('textoBruto').value;
+    linhas = extrairDoTexto(txt, statusPadrao);
+  }
+
+  if (!linhas.length) {
+    mostrarErro('Não encontrei linhas de DT/TIPO/TONELADAS. Tente subir a planilha ou revisar o texto/OCR.');
+    return;
+  }
+
+  renderizar(linhas, statusPadrao);
+}
+
+function extrairDaPlanilha(rows, statusPadrao) {
+  if (!rows.length) return [];
+  const primeiro = rows[0];
+  const colDT = acharColuna(primeiro, ['DT', 'DOCUMENTO']);
+  const colTipo = acharColuna(primeiro, ['TIPO']);
+  const colTon = acharColuna(primeiro, ['TONELADAS', 'PESO']);
+  const colStatus = acharColuna(primeiro, ['STATUS', 'STATUS ATUAL']);
+
+  if (!colDT || !colTon) return [];
+
+  return rows
+    .map(r => {
+      const dt = apenasDigitos(r[colDT]);
+      const tipo = String(r[colTipo] || '').trim().toUpperCase() || '-';
+      const ton = parseToneladas(r[colTon]);
+      const status = String(r[colStatus] || statusPadrao).trim().toUpperCase() || statusPadrao;
+      return { dt, tipo, ton, status };
+    })
+    .filter(x => x.dt && x.ton > 0);
+}
+
+function extrairDoTexto(texto, statusPadrao) {
+  const out = [];
+  const linhas = String(texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  for (const linha of linhas) {
+    const dt = (linha.match(/\b\d{7,10}\b/) || [])[0];
+    if (!dt) continue;
+
+    const tipoMatch = linha.match(/VENDA|TRANSFERENCIA|TRANSFERÊNCIA/i);
+    const tipo = tipoMatch ? tipoMatch[0].toUpperCase().replace('TRANSFERÊNCIA','TRANSFERENCIA') : '-';
+
+    const nums = linha.match(/\d+[\.,]\d+/g) || [];
+    const ton = nums.length ? parseToneladas(nums[nums.length - 1]) : 0;
+    if (!ton) continue;
+
+    const statusMatch = linha.match(/CARREGADO|PENDENTE|EM\s+ANDAMENTO|FINALIZADO/i);
+    const status = statusMatch ? statusMatch[0].toUpperCase() : statusPadrao;
+
+    out.push({ dt, tipo, ton, status });
+  }
+
+  return out;
+}
+
+function renderizar(linhas, statusPadrao) {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  let totalTon = 0;
+  for (const l of linhas) {
+    totalTon += l.ton;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${l.dt}</td><td>${l.tipo}</td><td>${l.ton.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td><td>${l.status || statusPadrao}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('kpiQtd').textContent = String(linhas.length);
+  document.getElementById('kpiTon').textContent = totalTon.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  document.getElementById('kpiStatus').textContent = statusPadrao;
+  document.getElementById('dataGeracao').textContent = 'Gerado em ' + new Date().toLocaleString('pt-BR');
+
+  document.getElementById('painelResultado').style.display = 'block';
+  document.getElementById('btnSalvar').style.display = 'inline-block';
+  document.getElementById('debug').textContent = `Registros processados: ${linhas.length}`;
+}
+
+function salvarImagem() {
+  html2canvas(document.getElementById('areaPrint'), { scale: 2, useCORS: true, logging: false }).then(canvas => {
+    const a = document.createElement('a');
+    a.download = 'produtividade_expedicao_t3.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  });
+}
+
+function limparTudo() {
+  dadosPlanilha = [];
+  document.getElementById('arquivoInput').value = '';
+  document.getElementById('textoBruto').value = '';
+  document.getElementById('tbody').innerHTML = '';
+  document.getElementById('painelResultado').style.display = 'none';
+  document.getElementById('btnSalvar').style.display = 'none';
+  document.getElementById('debug').textContent = '';
+  limparErro();
+}
+
+function mostrarErro(msg) {
+  const e = document.getElementById('erro');
+  e.style.display = 'block';
+  e.textContent = msg;
+}
+
+function limparErro() {
+  const e = document.getElementById('erro');
+  e.style.display = 'none';
+  e.textContent = '';
+}
+
+function parseToneladas(v) {
+  const txt = String(v ?? '').trim();
+  if (!txt) return 0;
+  const limpo = txt.replace(/\s/g, '').replace(/kg/ig, '').replace(/\./g, '').replace(',', '.');
+  const n = Number(limpo);
+  if (!Number.isFinite(n)) return 0;
+  return n > 200 ? (n / 1000) : n;
+}
+
+function apenasDigitos(v) {
+  return String(v ?? '').replace(/\D/g, '');
+}
+
+function normalizar(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+}
+
+function acharColuna(obj, nomes) {
+  const mapa = Object.keys(obj || {}).reduce((acc, k) => {
+    acc[normalizar(k)] = k;
+    return acc;
+  }, {});
+
+  for (const n of nomes) {
+    const k = mapa[normalizar(n)];
+    if (k) return k;
+  }
+  return null;
+}
+
+function csvParaObjetos(texto) {
+  const linhas = String(texto || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+  if (!linhas.length) return [];
+  const sep = detectarSep(linhas[0]);
+  const cab = linhaCsv(linhas[0], sep).map(x => x.trim());
+  const out = [];
+  for (let i = 1; i < linhas.length; i++) {
+    const vals = linhaCsv(linhas[i], sep);
+    const o = {};
+    for (let c = 0; c < cab.length; c++) o[cab[c]] = (vals[c] || '').trim();
+    out.push(o);
+  }
+  return out;
+}
+
+function detectarSep(linha) {
+  const cand = [';', ',', '\t'];
+  let best = ';';
+  let qtd = -1;
+  for (const c of cand) {
+    const n = linhaCsv(linha, c).length;
+    if (n > qtd) { qtd = n; best = c; }
+  }
+  return best;
+}
+
+function linhaCsv(linha, sep) {
+  const out = [];
+  let cur = '';
+  let asp = false;
+  for (let i = 0; i < linha.length; i++) {
+    const ch = linha[i];
+    if (ch === '"') {
+      if (asp && linha[i+1] === '"') { cur += '"'; i++; }
+      else asp = !asp;
+      continue;
+    }
+    if (ch === sep && !asp) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+</script>
+</body>
+</html>
