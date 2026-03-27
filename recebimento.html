@@ -29,6 +29,10 @@
     .kpi { background: #003f88; color: #fff; border-radius: 8px; padding: 10px; }
     .kpi span { font-size: .84rem; opacity: .9; display:block; }
     .kpi b { font-size: 1.2rem; }
+    .nota-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 10px 0; }
+    .nota-item { background: #f6f9ff; border: 1px solid #d7e3f6; border-radius: 8px; padding: 8px; }
+    .nota-item span { font-size: .78rem; color: #4a5568; display: block; }
+    .nota-item b { font-size: .92rem; color: #1f2937; word-break: break-word; }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
     th, td { border: 1px solid #dadada; padding: 8px; text-align: left; }
     th { background: #003f88; color: #fff; }
@@ -99,6 +103,8 @@
           <div class="kpi"><span>Total paletes</span><b id="kpiPaletes">0</b></div>
         </div>
 
+        <div id="dadosNota" class="nota-grid"></div>
+
         <table>
           <thead>
             <tr>
@@ -148,7 +154,7 @@
 
         const nfeManual = somenteDigitos(document.getElementById('nfeManual').value);
         const nfe = nfeManual || dadosXml.nfe || '-';
-        montarTabela(dadosXml.itens, nfe);
+        montarTabela(dadosXml.itens, nfe, dadosXml.nota);
         document.getElementById('debug').textContent = `XML lido com sucesso. Itens encontrados: ${dadosXml.itens.length}`;
         return;
       }
@@ -175,7 +181,7 @@
         return;
       }
 
-      montarTabela(itens, nfe);
+      montarTabela(itens, nfe, null);
       document.getElementById('debug').textContent = `PDF lido com sucesso. Itens encontrados: ${itens.length}`;
     } catch (err) {
       mostrarErro('Falha ao processar o arquivo: ' + err);
@@ -200,6 +206,7 @@
     document.getElementById('kpiNfe').textContent = '-';
     document.getElementById('kpiItens').textContent = '0';
     document.getElementById('kpiPaletes').textContent = '0';
+    document.getElementById('dadosNota').innerHTML = '';
     limparErro();
   };
 
@@ -296,13 +303,20 @@
     const xml = parser.parseFromString(String(xmlText || ''), 'application/xml');
 
     const erro = xml.getElementsByTagName('parsererror')[0];
-    if (erro) return { nfe: null, itens: [] };
+    if (erro) return { nfe: null, itens: [], nota: null };
 
     const nNF =
       getTagText(xml, 'nNF') ||
       getTagText(xml, 'NNF') ||
       getTagText(xml, 'ide_nNF');
     const nfe = nNF ? somenteDigitos(nNF).padStart(9, '0').slice(-9) : null;
+
+    const emitNome = getTagText(xml, 'xNome') || '-';
+    const emitCnpj = getTagText(xml, 'CNPJ') || '-';
+    const destNome = getTagTextByPath(xml, ['dest', 'xNome']) || '-';
+    const destCnpj = getTagTextByPath(xml, ['dest', 'CNPJ']) || '-';
+    const dhEmi = getTagText(xml, 'dhEmi') || getTagText(xml, 'dEmi') || '-';
+    const chave = extrairChaveAcessoXml(xml) || '-';
 
     const dets = Array.from(xml.getElementsByTagNameNS('*', 'det'));
     const itens = dets.map(det => {
@@ -314,12 +328,23 @@
       if (!cod || !desc) return null;
 
       return {
-        cod: somenteDigitos(cod) || String(cod).trim(),
+        cod: normalizarCodigoProduto(cod),
         descricao: String(desc).trim()
       };
     }).filter(Boolean);
 
-    return { nfe, itens };
+    return {
+      nfe,
+      itens,
+      nota: {
+        emitNome,
+        emitCnpj,
+        destNome,
+        destCnpj,
+        emissao: formatarDataHora(dhEmi),
+        chave
+      }
+    };
   }
 
   function getTagText(root, tagName) {
@@ -331,14 +356,14 @@
     return null;
   }
 
-  function montarTabela(itens, nfe) {
+  function montarTabela(itens, nfe, nota) {
     const tbody = document.getElementById('tbodyItens');
     tbody.innerHTML = '';
 
     itens.forEach((item, idx) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${item.cod}</td>
+        <td>${normalizarCodigoProduto(item.cod)}</td>
         <td>${item.descricao}</td>
         <td><input type="number" min="0" step="1" value="0" data-idx="${idx}" class="inp-palete" /></td>
       `;
@@ -352,6 +377,7 @@
     document.getElementById('kpiNfe').textContent = nfe;
     document.getElementById('kpiItens').textContent = String(itens.length);
     document.getElementById('dataImpressao').textContent = 'Gerado em ' + new Date().toLocaleString('pt-BR');
+    preencherDadosNota(nota);
     atualizarTotalPaletes();
 
     document.getElementById('resultado').style.display = 'block';
@@ -365,6 +391,65 @@
 
   function somenteDigitos(v) {
     return String(v || '').replace(/\D/g, '');
+  }
+
+  function normalizarCodigoProduto(cod) {
+    const dig = somenteDigitos(cod);
+    if (!dig) return String(cod || '').trim();
+
+    // Regra operacional pedida: quando houver muitos zeros à esquerda,
+    // iniciar do primeiro "2" (caso exista). Senão, remove zeros à esquerda.
+    const idx2 = dig.indexOf('2');
+    if (idx2 > 0) return dig.slice(idx2);
+
+    const semZeros = dig.replace(/^0+/, '');
+    return semZeros || dig;
+  }
+
+  function preencherDadosNota(nota) {
+    const alvo = document.getElementById('dadosNota');
+    if (!nota) {
+      alvo.innerHTML = '';
+      return;
+    }
+
+    const campos = [
+      ['Emitente', `${nota.emitNome} (${nota.emitCnpj})`],
+      ['Destinatário', `${nota.destNome} (${nota.destCnpj})`],
+      ['Emissão', nota.emissao || '-'],
+      ['Chave de acesso', nota.chave || '-']
+    ];
+
+    alvo.innerHTML = campos.map(([k, v]) => `
+      <div class="nota-item">
+        <span>${k}</span>
+        <b>${v || '-'}</b>
+      </div>
+    `).join('');
+  }
+
+  function formatarDataHora(valor) {
+    if (!valor || valor === '-') return '-';
+    const d = new Date(valor);
+    return Number.isNaN(d.getTime()) ? String(valor) : d.toLocaleString('pt-BR');
+  }
+
+  function extrairChaveAcessoXml(xml) {
+    const inf = xml.getElementsByTagNameNS('*', 'infNFe')[0] || xml.getElementsByTagName('infNFe')[0];
+    const id = inf?.getAttribute('Id') || inf?.getAttribute('id') || '';
+    const chave = String(id).replace(/^NFe/i, '');
+    if (/^\d{44}$/.test(chave)) return chave;
+    return getTagText(xml, 'chNFe') || null;
+  }
+
+  function getTagTextByPath(xml, path) {
+    let atual = xml;
+    for (const tag of path) {
+      const prox = atual.getElementsByTagNameNS('*', tag)[0] || atual.getElementsByTagName(tag)[0];
+      if (!prox) return null;
+      atual = prox;
+    }
+    return atual.textContent || null;
   }
 
   function mostrarErro(msg) {
