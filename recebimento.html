@@ -204,12 +204,14 @@
   }
 
   function extrairItens(texto) {
-    const t = String(texto || '').replace(/\s+/g, ' ').trim();
+    const blocoProdutos = extrairBlocoProdutos(texto);
+    const t = String(blocoProdutos || '').replace(/\s+/g, ' ').trim();
+    if (!t) return [];
     const itens = [];
 
     // Captura linhas de produto no padrão DANFE:
     // CODIGO(8) + DESCRICAO + NCM(8) + CST(3) + CFOP(4) + UN
-    const re = /(\d{8})\s+(.+?)\s+(\d{8})\s+\d{3}\s+\d{4}\s+[A-Z]{2,4}\s+/g;
+    const re = /(?:^|\s)(\d{8})\s+(.{3,120}?)\s+(\d{8})\s+\d{3}\s+\d{4}\s+[A-Z]{2,4}\s+\d+[.,]\d{3}/g;
     let m;
 
     while ((m = re.exec(t)) !== null) {
@@ -220,12 +222,54 @@
         .trim();
 
       if (!cod || !descricao) continue;
+      if (/^0+$/.test(cod)) continue;
+      if (descricao.length > 120) continue;
       if (itens.some(i => i.cod === cod && i.descricao === descricao)) continue;
 
       itens.push({ cod, descricao });
     }
 
     return itens;
+  }
+
+  function extrairBlocoProdutos(texto) {
+    const original = String(texto || '');
+    if (!original) return '';
+
+    // Versão normalizada para localizar marcadores, mantendo mapeamento por índice aproximado.
+    const normalizado = original
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    const inicioMarcadores = [
+      'DADOSDOSPRODUTOS/SERVICOS',
+      'DADOS DOS PRODUTOS/SERVICOS',
+      'DADOSDOSPRODUTOS',
+      'DADOS DOS PRODUTOS'
+    ];
+    const fimMarcadores = [
+      'DADOSADICIONAIS',
+      'DADOS ADICIONAIS',
+      'INFORMACOESCOMPLEMENTARES',
+      'INFORMACOES COMPLEMENTARES'
+    ];
+
+    let inicio = -1;
+    for (const m of inicioMarcadores) {
+      inicio = normalizado.indexOf(m);
+      if (inicio >= 0) break;
+    }
+    if (inicio < 0) return original;
+
+    let fim = -1;
+    for (const m of fimMarcadores) {
+      fim = normalizado.indexOf(m, inicio);
+      if (fim >= 0) break;
+    }
+    if (fim < 0) fim = original.length;
+
+    return original.slice(inicio, fim);
   }
 
   function montarTabela(itens, nfe) {
