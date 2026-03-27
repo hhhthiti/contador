@@ -47,7 +47,7 @@
       <div class="header">
         <div>
           <h1>Aba Recebimento</h1>
-          <div class="muted">Suba o PDF da NF-e para identificar NFe (9 dígitos), CÓD. e DESCRIÇÃO. Preencha paletes por item e imprima para operação.</div>
+          <div class="muted">Suba o PDF ou XML da NF-e para identificar NFe (9 dígitos), CÓD. e DESCRIÇÃO. Preencha paletes por item e imprima para operação.</div>
         </div>
         <div class="logos">
           <img src="icons/JSL.png" alt="Logo JSL" />
@@ -57,8 +57,8 @@
 
       <div class="row">
         <div>
-          <label><b>PDF da NF-e</b></label>
-          <input id="pdfInput" type="file" accept="application/pdf" />
+          <label><b>Arquivo da NF-e (PDF/XML)</b></label>
+          <input id="pdfInput" type="file" accept="application/pdf,.xml,text/xml,application/xml" />
         </div>
         <div>
           <label><b>Número NF-e (manual, opcional)</b></label>
@@ -71,7 +71,7 @@
       </div>
 
       <div class="btns">
-        <button class="btn-primary" onclick="processarPdf()">Ler PDF</button>
+        <button class="btn-primary" onclick="processarArquivo()">Ler Arquivo</button>
         <button class="btn-success" onclick="imprimirRelatorio()">Imprimir</button>
         <button class="btn-gray" onclick="limparTudo()">Limpar</button>
       </div>
@@ -122,19 +122,38 @@
     document.getElementById('dataHoje').value = new Date().toLocaleDateString('pt-BR');
   });
 
-  window.processarPdf = async function processarPdf() {
+  window.processarArquivo = async function processarArquivo() {
     limparErro();
     const input = document.getElementById('pdfInput');
     const file = input.files[0];
 
     if (!file) {
-      mostrarErro('Selecione um PDF para leitura.');
+      mostrarErro('Selecione um arquivo PDF ou XML para leitura.');
       return;
     }
 
-    document.getElementById('debug').textContent = 'Lendo texto do PDF...';
-
     try {
+      const nome = (file.name || '').toLowerCase();
+      const tipo = (file.type || '').toLowerCase();
+
+      if (nome.endsWith('.xml') || tipo.includes('xml')) {
+        document.getElementById('debug').textContent = 'Lendo XML da NF-e...';
+        const xmlText = await file.text();
+        const dadosXml = extrairDadosXml(xmlText);
+
+        if (!dadosXml.itens.length) {
+          mostrarErro('Não consegui localizar itens no XML da NF-e.');
+          return;
+        }
+
+        const nfeManual = somenteDigitos(document.getElementById('nfeManual').value);
+        const nfe = nfeManual || dadosXml.nfe || '-';
+        montarTabela(dadosXml.itens, nfe);
+        document.getElementById('debug').textContent = `XML lido com sucesso. Itens encontrados: ${dadosXml.itens.length}`;
+        return;
+      }
+
+      document.getElementById('debug').textContent = 'Lendo texto do PDF...';
       const bytes = new Uint8Array(await file.arrayBuffer());
       const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
 
@@ -159,7 +178,7 @@
       montarTabela(itens, nfe);
       document.getElementById('debug').textContent = `PDF lido com sucesso. Itens encontrados: ${itens.length}`;
     } catch (err) {
-      mostrarErro('Falha ao processar o PDF: ' + err);
+      mostrarErro('Falha ao processar o arquivo: ' + err);
     }
   };
 
@@ -270,6 +289,46 @@
     if (fim < 0) fim = original.length;
 
     return original.slice(inicio, fim);
+  }
+
+  function extrairDadosXml(xmlText) {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(String(xmlText || ''), 'application/xml');
+
+    const erro = xml.getElementsByTagName('parsererror')[0];
+    if (erro) return { nfe: null, itens: [] };
+
+    const nNF =
+      getTagText(xml, 'nNF') ||
+      getTagText(xml, 'NNF') ||
+      getTagText(xml, 'ide_nNF');
+    const nfe = nNF ? somenteDigitos(nNF).padStart(9, '0').slice(-9) : null;
+
+    const dets = Array.from(xml.getElementsByTagNameNS('*', 'det'));
+    const itens = dets.map(det => {
+      const prod = det.getElementsByTagNameNS('*', 'prod')[0];
+      if (!prod) return null;
+
+      const cod = getTagText(prod, 'cProd') || getTagText(prod, 'CPROD');
+      const desc = getTagText(prod, 'xProd') || getTagText(prod, 'XPROD');
+      if (!cod || !desc) return null;
+
+      return {
+        cod: somenteDigitos(cod) || String(cod).trim(),
+        descricao: String(desc).trim()
+      };
+    }).filter(Boolean);
+
+    return { nfe, itens };
+  }
+
+  function getTagText(root, tagName) {
+    if (!root) return null;
+    const byNs = root.getElementsByTagNameNS('*', tagName);
+    if (byNs && byNs[0]) return byNs[0].textContent;
+    const byPlain = root.getElementsByTagName(tagName);
+    if (byPlain && byPlain[0]) return byPlain[0].textContent;
+    return null;
   }
 
   function montarTabela(itens, nfe) {
