@@ -810,13 +810,23 @@
   /**
    * Converte string/valor numérico para moeda BRL.
    */
-  function formatarMoedaBr(valor) {
-    if (!valor || valor === '-') return '-';
-    const limpo = String(valor).replace(/\./g, '').replace(',', '.');
-    const num = Number(limpo);
-    if (!Number.isFinite(num)) return String(valor);
-    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
+function formatarMoedaBr(valor) {
+  if (!valor || valor === '-') return '-';
+
+  const limpo = String(valor).replace(/\./g, '').replace(',', '.');
+  const num = Number(limpo);
+
+  // IGNORA valor 0
+  if (!Number.isFinite(num) || num === 0) return '-';
+
+  // GARANTE ,00 sempre
+  return num.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
 
   /**
    * Formata CPF/CNPJ com máscara brasileira.
