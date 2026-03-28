@@ -812,10 +812,62 @@
    */
   function formatarMoedaBr(valor) {
     if (!valor || valor === '-') return '-';
-    const limpo = String(valor).replace(/\./g, '').replace(',', '.');
-    const num = Number(limpo);
+    const num = parseValorMonetario(valor);
     if (!Number.isFinite(num)) return String(valor);
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  /**
+   * Converte texto monetário (com OCR imperfeito) para número.
+   * Trata casos como:
+   * - "36.643,41"
+   * - "36,643.41"
+   * - "36.643.41" (erro comum de OCR no separador decimal)
+   * - "36643,41" / "36643.41"
+   */
+  function parseValorMonetario(valor) {
+    const original = String(valor || '').trim();
+    if (!original) return NaN;
+
+    let s = original.replace(/[^\d,.-]/g, '');
+    if (!s) return NaN;
+
+    const ultimoPonto = s.lastIndexOf('.');
+    const ultimaVirgula = s.lastIndexOf(',');
+
+    // Quando há os dois separadores, assume decimal no último separador encontrado.
+    if (ultimoPonto >= 0 && ultimaVirgula >= 0) {
+      if (ultimaVirgula > ultimoPonto) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else {
+        s = s.replace(/,/g, '');
+      }
+      return Number(s);
+    }
+
+    // Só vírgula: padrão BR (milhar + decimal).
+    if (ultimaVirgula >= 0) {
+      s = s.replace(/\./g, '').replace(',', '.');
+      return Number(s);
+    }
+
+    // Só ponto: pode ser decimal ou erro de OCR com múltiplos pontos.
+    if (ultimoPonto >= 0) {
+      const partes = s.split('.');
+      if (partes.length > 2) {
+        // Ex.: "36.643.41" => milhares + decimal.
+        const dec = partes.pop();
+        const inteiro = partes.join('');
+        if (dec.length === 2) return Number(`${inteiro}.${dec}`);
+        return Number(partes.join('') + dec);
+      }
+      // Ex.: "36643.41" (decimal) ou "36.643" (milhar sem decimal).
+      if (partes[1]?.length === 2) return Number(s);
+      return Number(s.replace(/\./g, ''));
+    }
+
+    // Somente dígitos.
+    return Number(s);
   }
 
   /**
