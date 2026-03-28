@@ -80,7 +80,7 @@
         </div>
         <div class="logos">
           <img src="icons/JSL.png" alt="Logo JSL" />
-          <img src="icons/suzano123.png" alt="Logo Suzano" />
+            <img src="icons/suzano123.png" alt="Logo Suzano" />
         </div>
       </div>
 
@@ -115,7 +115,7 @@
         <div class="header">
           <div class="logos">
             <img src="icons/JSL.png" alt="Logo JSL" />
-            
+    
           </div>
           <div style="text-align:right">
             <div style="font-weight:700; color:#cf102d;">RECEBIMENTO OPERAÇÃO</div>
@@ -161,6 +161,13 @@
     document.getElementById('dataHoje').value = new Date().toLocaleDateString('pt-BR');
   });
 
+  /**
+   * Ponto de entrada do fluxo de leitura:
+   * - valida arquivo;
+   * - identifica se entrada é XML ou PDF;
+   * - extrai dados da NF + itens;
+   * - atualiza tabela/KPIs e pré-visualização das páginas.
+   */
   window.processarArquivo = async function processarArquivo() {
     limparErro();
     const input = document.getElementById('pdfInput');
@@ -222,6 +229,10 @@
     }
   };
 
+  /**
+   * Exporta o relatório para um PDF A4 de duas páginas
+   * capturando os containers HTML já montados na tela.
+   */
   window.gerarPdfDuasPaginas = async function gerarPdfDuasPaginas() {
     limparErro();
     const visivel = document.getElementById('resultado').style.display !== 'none';
@@ -265,6 +276,9 @@
     }
   };
 
+  /**
+   * Abre a janela de impressão do navegador.
+   */
   window.imprimirRelatorio = function imprimirRelatorio() {
     const visivel = document.getElementById('resultado').style.display !== 'none';
     if (!visivel) {
@@ -274,6 +288,9 @@
     window.print();
   };
 
+  /**
+   * Reseta estado, formulário e visualização do relatório.
+   */
   window.limparTudo = function limparTudo() {
     document.getElementById('pdfInput').value = '';
     document.getElementById('nfeManual').value = '';
@@ -290,6 +307,9 @@
     limparErro();
   };
 
+  /**
+   * Extrai o número da NF-e (até 9 dígitos) a partir de texto livre.
+   */
   function extrairNfe(texto) {
     const t = String(texto || '');
     const padroes = [
@@ -308,6 +328,9 @@
     return fallback ? fallback[0] : null;
   }
 
+  /**
+   * Extrai itens (código + descrição) do bloco de produtos no texto do PDF.
+   */
   function extrairItens(texto) {
     const blocoProdutos = extrairBlocoProdutos(texto);
     const t = String(blocoProdutos || '').replace(/\s+/g, ' ').trim();
@@ -331,6 +354,9 @@
     return itens;
   }
 
+  /**
+   * Isola apenas a seção de produtos do DANFE para reduzir falsos positivos.
+   */
   function extrairBlocoProdutos(texto) {
     const original = String(texto || '');
     if (!original) return '';
@@ -357,6 +383,12 @@
     return original.slice(inicio, fim);
   }
 
+  /**
+   * Faz o parsing estruturado do XML NF-e e devolve:
+   * - nfe;
+   * - lista de itens;
+   * - objeto nota com campos usados no layout/relatório.
+   */
   function extrairDadosXml(xmlText) {
     const parser = new DOMParser();
     const xml = parser.parseFromString(String(xmlText || ''), 'application/xml');
@@ -422,9 +454,14 @@
     };
   }
 
+  /**
+   * Faz parsing heurístico de dados da nota quando a origem é PDF.
+   * Observação: prioriza "VALOR TOTAL DA NOTA" para evitar pegar
+   * outros totais (ex.: produtos/impostos) que podem ser maiores.
+   */
   function extrairDadosNotaDoPdf(texto, nfe) {
     const t = String(texto || ' ');
-    const total = t.match(/VALOR\s+TOTAL\s*(?:DA\s+NOTA)?\s*[:]?\s*([\d.,]+)/i)?.[1] || '-';
+    const total = extrairValorTotalDanfePdf(t) || '-';
     const emissao = t.match(/DATA\s+DA\s+EMISSAO\s*[:]?\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1] || '-';
     const emitente = t.match(/IDENTIFICACAO\s+DO\s+EMITENTE\s+([^\n]+)/i)?.[1] || 'Emitente não identificado';
     const destinatario = t.match(/DESTINATARIO\s*\/\s*REMETENTE\s+NOME\s*\/\s*RAZAO\s*SOCIAL\s+([^\n]+)/i)?.[1] || 'Destinatário não identificado';
@@ -455,11 +492,38 @@
     };
   }
 
+  /**
+   * Extrai o valor total da NF-e em PDF com prioridade para rótulos exatos
+   * do total da nota fiscal. Retorna somente a parte numérica (string).
+   */
+  function extrairValorTotalDanfePdf(texto) {
+    const normalizado = String(texto || '').replace(/\s+/g, ' ');
+    const padroesPrioritarios = [
+      /VALOR\s+TOTAL\s+DA\s+NOTA\s*[:\-]?\s*R?\$?\s*([\d.,]+)/i,
+      /V\.\s*TOTAL\s+DA\s+NOTA\s*[:\-]?\s*R?\$?\s*([\d.,]+)/i,
+      /VALOR\s+TOTAL\s+DA\s+NF(?:-E)?\s*[:\-]?\s*R?\$?\s*([\d.,]+)/i
+    ];
+
+    for (const re of padroesPrioritarios) {
+      const m = normalizado.match(re);
+      if (m?.[1]) return m[1];
+    }
+
+    const fallback = normalizado.match(/VALOR\s+TOTAL\s*[:\-]?\s*R?\$?\s*([\d.,]+)/i);
+    return fallback?.[1] || null;
+  }
+
+  /**
+   * Extrai chave de acesso (44 dígitos) de texto livre.
+   */
   function extrairChaveDeAcessoTexto(t) {
     const digitos44 = String(t).replace(/\D/g, '').match(/\d{44}/);
     return digitos44 ? digitos44[0] : null;
   }
 
+  /**
+   * Lê texto da primeira ocorrência de uma tag (com/sem namespace).
+   */
   function getTagText(root, tagName) {
     if (!root) return null;
     const byNs = root.getElementsByTagNameNS('*', tagName);
@@ -469,6 +533,9 @@
     return null;
   }
 
+  /**
+   * Percorre um caminho de tags e retorna o nó final.
+   */
   function getNodeByPath(root, path) {
     let node = root;
     for (const tag of path) {
@@ -480,11 +547,17 @@
     return node;
   }
 
+  /**
+   * Atalho para retornar o texto de um nó encontrado por caminho.
+   */
   function getTagTextByPath(root, path) {
     const node = getNodeByPath(root, path);
     return node?.textContent || null;
   }
 
+  /**
+   * Renderiza tabela de itens e atualiza estado/KPIs da tela.
+   */
   function montarTabela(itens, nfe, nota) {
     const tbody = document.getElementById('tbodyItens');
     tbody.innerHTML = '';
@@ -513,6 +586,11 @@
     document.getElementById('resultado').style.display = 'block';
   }
 
+  /**
+   * Monta o HTML das duas páginas base do PDF:
+   * - Página 1: dados da NF-e;
+   * - Página 2: conferência de paletes.
+   */
   function montarPaginasPdf() {
     const nota = estadoAtual.nota || {};
     const nfeFormatada = formatarNfe(estadoAtual.nfe || nota.nfe || '-');
@@ -522,7 +600,7 @@
       <div class="header" style="border-bottom:1px solid #111; margin-bottom:6px; padding-bottom:4px;">
         <div class="logos">
           <img src="icons/JSL.png" alt="Logo JSL" style="height:24px" />
-          
+         
         </div>
         <div class="pdf-mini"><b>PÁGINA 1/2 - DADOS DA NF-E</b></div>
       </div>
@@ -573,7 +651,7 @@
       <div class="header" style="border-bottom:1px solid #111; margin-bottom:6px; padding-bottom:4px;">
         <div class="logos">
           <img src="icons/JSL.png" alt="Logo JSL" style="height:24px" />
- 
+          
         </div>
         <div class="pdf-mini"><b>PÁGINA 2/2 - RECEBIMENTO / PALETES</b></div>
       </div>
@@ -601,6 +679,9 @@
     gerarCodigoBarras(chave);
   }
 
+  /**
+   * Gera código de barras CODE128 para a chave (apenas 44 dígitos válidos).
+   */
   function gerarCodigoBarras(chave) {
     const el = document.getElementById('barcodeChave');
     if (!el) return;
@@ -621,11 +702,17 @@
     });
   }
 
+  /**
+   * Soma os campos de paletes informados manualmente e atualiza KPI.
+   */
   function atualizarTotalPaletes() {
     const total = Array.from(document.querySelectorAll('.inp-palete')).reduce((acc, el) => acc + (Number(el.value) || 0), 0);
     document.getElementById('kpiPaletes').textContent = String(total);
   }
 
+  /**
+   * Preenche o card resumido com os principais campos da nota.
+   */
   function preencherDadosNota(nota) {
     const alvo = document.getElementById('dadosNota');
     if (!nota) {
@@ -649,10 +736,18 @@
     `).join('');
   }
 
+  /**
+   * Remove tudo que não for número.
+   */
   function somenteDigitos(v) {
     return String(v || '').replace(/\D/g, '');
   }
 
+  /**
+   * Normaliza código do produto:
+   * - prioriza início no primeiro "2" quando existir prefixo com zeros;
+   * - fallback removendo zeros à esquerda.
+   */
   function normalizarCodigoProduto(cod) {
     const dig = somenteDigitos(cod);
     if (!dig) return String(cod || '').trim();
@@ -664,6 +759,9 @@
     return semZeros || dig;
   }
 
+  /**
+   * Formata NF-e em padrão 000.000.000 (9 dígitos).
+   */
   function formatarNfe(nfe) {
     const dig = somenteDigitos(nfe);
     if (!dig) return '-';
@@ -671,12 +769,18 @@
     return `${s.slice(0, 3)}.${s.slice(3, 6)}.${s.slice(6, 9)}`;
   }
 
+  /**
+   * Formata chave de acesso em blocos de 4 dígitos.
+   */
   function formatarChaveLegivel(chave) {
     const dig = somenteDigitos(chave);
     if (!/^\d{44}$/.test(dig)) return chave || '-';
     return dig.match(/.{1,4}/g).join(' ');
   }
 
+  /**
+   * Monta endereço em uma única linha legível para exibição.
+   */
   function formatarEnderecoNode(node) {
     if (!node) return '-';
     const lgr = getTagText(node, 'xLgr') || '';
@@ -694,12 +798,18 @@
     ].filter(Boolean).join(' | ');
   }
 
+  /**
+   * Formata data/hora para locale pt-BR quando possível.
+   */
   function formatarDataHora(valor) {
     if (!valor || valor === '-') return '-';
     const d = new Date(valor);
     return Number.isNaN(d.getTime()) ? String(valor) : d.toLocaleString('pt-BR');
   }
 
+  /**
+   * Converte string/valor numérico para moeda BRL.
+   */
   function formatarMoedaBr(valor) {
     if (!valor || valor === '-') return '-';
     const limpo = String(valor).replace(/\./g, '').replace(',', '.');
@@ -708,6 +818,9 @@
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  /**
+   * Formata CPF/CNPJ com máscara brasileira.
+   */
   function formatarCnpjCpf(valor) {
     const dig = somenteDigitos(valor);
     if (dig.length === 14) return dig.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
@@ -715,6 +828,9 @@
     return valor || '-';
   }
 
+  /**
+   * Extrai chave de acesso do XML (Id de infNFe ou tag chNFe).
+   */
   function extrairChaveAcessoXml(xml) {
     const inf = xml.getElementsByTagNameNS('*', 'infNFe')[0] || xml.getElementsByTagName('infNFe')[0];
     const id = inf?.getAttribute('Id') || inf?.getAttribute('id') || '';
@@ -723,12 +839,18 @@
     return getTagText(xml, 'chNFe') || null;
   }
 
+  /**
+   * Exibe mensagem de erro na interface.
+   */
   function mostrarErro(msg) {
     const e = document.getElementById('erro');
     e.style.display = 'block';
     e.textContent = msg;
   }
 
+  /**
+   * Oculta/limpa mensagens de erro da interface.
+   */
   function limparErro() {
     const e = document.getElementById('erro');
     e.style.display = 'none';
