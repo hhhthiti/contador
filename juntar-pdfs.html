@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Juntar PDFs para Impressão</title>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f3f5f8; margin: 0; padding: 20px; }
+    .container { max-width: 980px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.08); padding: 16px; margin-bottom: 16px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cf102d; padding-bottom: 8px; margin-bottom: 12px; }
+    .logos { display: flex; gap: 10px; align-items: center; }
+    .logos img { height: 34px; object-fit: contain; }
+    .muted { color: #64748b; font-size: .9rem; }
+    input[type=file] { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    button { border: 0; border-radius: 8px; padding: 10px 14px; color: #fff; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #005bbb; }
+    .btn-success { background: #1f8a3b; }
+    .btn-gray { background: #64748b; }
+    .btn-mini { padding: 4px 8px; font-size: .8rem; }
+    .erro { display: none; background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 8px; margin-top: 10px; }
+    .ok { display: none; background: #dcfce7; color: #14532d; border-radius: 8px; padding: 8px; margin-top: 10px; }
+    .list { margin-top: 10px; display: grid; gap: 8px; }
+    .item { border: 1px solid #dbe3ef; border-radius: 8px; padding: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .small { font-size: .85rem; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div>
+          <h1 style="margin:0; color:#cf102d; font-size:1.35rem;">Juntar PDFs</h1>
+          <div class="muted">Selecione vários PDFs, ajuste a ordem e gere um arquivo único para imprimir.</div>
+        </div>
+        <div class="logos">
+          <img src="icons/JSL.png" alt="Logo JSL" />
+          <img src="icons/suzano.svg" alt="Logo Suzano" />
+        </div>
+      </div>
+
+      <label><b>Arquivos PDF</b></label>
+      <input id="pdfs" type="file" multiple accept="application/pdf" />
+
+      <div id="listaArquivos" class="list"></div>
+
+      <div class="btns">
+        <button class="btn-primary" onclick="gerarPdfUnico()">Gerar PDF único</button>
+        <button class="btn-success" onclick="imprimirPdfUnico()">Imprimir PDF único</button>
+        <button class="btn-gray" onclick="limparTudo()">Limpar</button>
+      </div>
+
+      <div id="ok" class="ok"></div>
+      <div id="erro" class="erro"></div>
+    </div>
+  </div>
+
+  <script>
+    let arquivosOrdenados = [];
+    let blobGerado = null;
+
+    document.getElementById('pdfs').addEventListener('change', (e) => {
+      arquivosOrdenados = Array.from(e.target.files || []);
+      blobGerado = null;
+      renderLista();
+      limparMensagens();
+    });
+
+    function renderLista() {
+      const lista = document.getElementById('listaArquivos');
+      if (!arquivosOrdenados.length) {
+        lista.innerHTML = '<div class="small">Nenhum arquivo selecionado.</div>';
+        return;
+      }
+
+      lista.innerHTML = arquivosOrdenados.map((file, idx) => `
+        <div class="item">
+          <div>
+            <div><b>${idx + 1}. ${escapeHtml(file.name)}</b></div>
+            <div class="small">${(file.size / 1024).toFixed(1)} KB</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-gray btn-mini" onclick="mover(${idx}, -1)">↑</button>
+            <button class="btn-gray btn-mini" onclick="mover(${idx}, 1)">↓</button>
+            <button class="btn-gray btn-mini" onclick="remover(${idx})">Remover</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function mover(idx, delta) {
+      const novo = idx + delta;
+      if (novo < 0 || novo >= arquivosOrdenados.length) return;
+      [arquivosOrdenados[idx], arquivosOrdenados[novo]] = [arquivosOrdenados[novo], arquivosOrdenados[idx]];
+      renderLista();
+      blobGerado = null;
+    }
+
+    function remover(idx) {
+      arquivosOrdenados.splice(idx, 1);
+      renderLista();
+      blobGerado = null;
+    }
+
+    async function gerarPdfUnico() {
+      limparMensagens();
+      if (!arquivosOrdenados.length) {
+        mostrarErro('Selecione pelo menos 1 PDF.');
+        return;
+      }
+
+      try {
+        const mergedPdf = await PDFLib.PDFDocument.create();
+
+        for (const file of arquivosOrdenados) {
+          const bytes = await file.arrayBuffer();
+          const source = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+          const pages = await mergedPdf.copyPages(source, source.getPageIndices());
+          pages.forEach(page => mergedPdf.addPage(page));
+        }
+
+        const mergedBytes = await mergedPdf.save();
+        blobGerado = new Blob([mergedBytes], { type: 'application/pdf' });
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blobGerado);
+        a.download = `pdf-unico-${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        mostrarOk(`PDF único gerado com ${arquivosOrdenados.length} arquivo(s).`);
+      } catch (e) {
+        mostrarErro('Erro ao juntar os PDFs: ' + e.message);
+      }
+    }
+
+    async function imprimirPdfUnico() {
+      limparMensagens();
+      if (!blobGerado) {
+        await gerarPdfUnico();
+      }
+      if (!blobGerado) return;
+
+      const url = URL.createObjectURL(blobGerado);
+      const w = window.open(url, '_blank');
+      if (!w) {
+        mostrarErro('Não consegui abrir a aba de impressão. Verifique bloqueio de pop-up.');
+        return;
+      }
+
+      setTimeout(() => {
+        w.focus();
+        w.print();
+      }, 700);
+    }
+
+    function limparTudo() {
+      document.getElementById('pdfs').value = '';
+      arquivosOrdenados = [];
+      blobGerado = null;
+      renderLista();
+      limparMensagens();
+    }
+
+    function mostrarErro(msg) {
+      const el = document.getElementById('erro');
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    function mostrarOk(msg) {
+      const el = document.getElementById('ok');
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    function limparMensagens() {
+      document.getElementById('erro').style.display = 'none';
+      document.getElementById('erro').textContent = '';
+      document.getElementById('ok').style.display = 'none';
+      document.getElementById('ok').textContent = '';
+    }
+
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    renderLista();
+  </script>
+</body>
+</html>

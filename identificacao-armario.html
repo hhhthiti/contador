@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Identificação de Armário - Impressão Paisagem</title>
+  <style>
+    :root {
+      --vermelho-jsl: #cf102d;
+      --fundo: #f3f5f8;
+      --texto: #111827;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--fundo);
+      color: var(--texto);
+      padding: 20px;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.08);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .titulo {
+      margin: 0 0 6px;
+      color: var(--vermelho-jsl);
+      font-size: 1.4rem;
+    }
+
+    .muted { color: #64748b; font-size: .9rem; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      margin-top: 12px;
+      align-items: end;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .btn-primary { background: #005bbb; }
+    .btn-success { background: #1f8a3b; }
+
+    .etiqueta {
+      width: 100%;
+      min-height: 190mm;
+      background: #fff;
+      border: 2px solid #111;
+      border-radius: 12px;
+      padding: 22mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .logo {
+      width: 38%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .logo img {
+      max-width: 100%;
+      max-height: 70mm;
+      object-fit: contain;
+    }
+
+    .numero {
+      width: 62%;
+      text-align: center;
+      font-size: 36mm;
+      line-height: 1;
+      font-weight: 800;
+      color: #0f172a;
+      border-left: 4px solid #111;
+      padding-left: 20px;
+      letter-spacing: 1px;
+    }
+
+    .subtitulo {
+      margin-top: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    @media print {
+      @page { size: A4 landscape; margin: 8mm; }
+      body { background: #fff; padding: 0; }
+      .no-print { display: none !important; }
+      .card { box-shadow: none; border-radius: 0; padding: 0; margin: 0; }
+      .etiqueta { min-height: 190mm; border-width: 1.5px; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card no-print">
+      <h1 class="titulo">Identificação para Armário</h1>
+      <div class="muted">Digite o número e clique em <b>Atualizar</b>. Depois use <b>Imprimir</b> (A4 paisagem).</div>
+
+      <div class="row">
+        <div>
+          <label><b>Número de identificação</b></label>
+          <input id="numeroInput" type="text" placeholder="Ex.: 12" maxlength="12" />
+        </div>
+        <button class="btn-primary" onclick="atualizarEtiqueta()">Atualizar</button>
+        <button class="btn-success" onclick="window.print()">Imprimir</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="etiqueta" class="etiqueta">
+        <div class="logo">
+          <img src="icons/JSL.png" alt="Logo JSL" />
+        </div>
+        <div>
+          <div class="numero" id="numeroArmario">--</div>
+          <div class="subtitulo">Identificação de Armário</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function atualizarEtiqueta() {
+      const valor = (document.getElementById('numeroInput').value || '').trim();
+      document.getElementById('numeroArmario').textContent = valor || '--';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('numeroInput').focus();
+    });
+  </script>
+</body>
+</html>
