@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dash de Matérias</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f0f4f8; color: #222; }
+    .wrap { max-width: 1200px; margin: 24px auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; color: #004a99; }
+    .controls { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin-bottom: 16px; }
+    .card { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 14px 0; }
+    .stat b { display:block; font-size: 26px; color:#0f3460; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #004a99; color: #fff; }
+    tr:nth-child(even) { background: #f8fafc; }
+    button { background:#0b63c7; color:#fff; border:0; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:bold; }
+    button:hover { filter: brightness(1.06); }
+    .charts { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:16px; }
+    canvas { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:8px; }
+    .muted { color:#666; font-size: 13px; }
+    @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } .controls { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>📦 Dash de Matérias (Fardos → Paletes)</h1>
+    <p class="muted">Suba arquivo <b>.csv</b> ou <b>.xlsx</b>. O sistema converte fardos por SKU para paletes e fração.</p>
+
+    <div class="controls">
+      <div class="card">
+        <label for="fileInput"><b>Arquivo de pedidos</b></label><br>
+        <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+      </div>
+      <div class="card">
+        <button id="downloadCsvBtn" disabled>⬇️ Baixar CSV convertido</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="card stat">Pedidos com fração <b id="withFraction">0</b></div>
+      <div class="card stat">Pedidos sem fração <b id="withoutFraction">0</b></div>
+      <div class="card stat">% com fração <b id="fractionPct">0%</b></div>
+    </div>
+
+    <div class="charts">
+      <div class="card">
+        <h3>Top 3 clientes com mais pedidos fracionados</h3>
+        <canvas id="topClientsChart" height="180"></canvas>
+      </div>
+      <div class="card">
+        <h3>Pedidos fracionados vs sem fração</h3>
+        <canvas id="fractionChart" height="180"></canvas>
+      </div>
+    </div>
+
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>DT</th>
+          <th>Cliente</th>
+          <th>Data</th>
+          <th>Material</th>
+          <th>Fardos</th>
+          <th>Paletes</th>
+          <th>Fração</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<script>
+  const SKU_POR_PALETE = {
+    '20104414': 36, '20104415': 36, '20104416': 36, '20104419': 33, '20104418': 28,
+    '20106704': 36, '20106705': 36, '20104405': 48, '20104407': 32, '20104410': 36,
+    '20104412': 28, '20104413': 36, '20104409': 36, '20104408': 36, '20081464': 36,
+    '20081466': 36, '20081481': 28, '20081961': 36, '20089387': 24, '20095269': 36,
+    '20081984': 28, '20081465': 36, '20081467': 36, '20081469': 28, '20111061': 36,
+    '20104309': 45, '20104421': 63, '20104422': 56, '20109594': 56, '20104430': 15,
+    '20104429': 27, '20104426': 27, '20104313': 36, '20104425': 36, '20104312': 36,
+    '20110078': 36, '20091834': 36, '20091835': 42, '30227945': 15, '30179006': 18,
+    '30228198': 15, '20109727': 24, '20091836': 36, '20104310': 225
+  };
+
+  let convertedRows = [];
+  let topClientsChart, fractionChart;
+
+  function normalizeKeys(obj) {
+    const fixed = {};
+    for (const k in obj) fixed[k.trim().toLowerCase()] = obj[k];
+    return fixed;
+  }
+
+  function parseFardos(value) {
+    const n = Number(String(value ?? '').replace('.', '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function drawCharts(withFraction, withoutFraction, top3) {
+    if (topClientsChart) topClientsChart.destroy();
+    if (fractionChart) fractionChart.destroy();
+
+    topClientsChart = new Chart(document.getElementById('topClientsChart'), {
+      type: 'bar',
+      data: {
+        labels: top3.map(x => x.cliente),
+        datasets: [{ label: 'Pedidos fracionados', data: top3.map(x => x.qtd), backgroundColor: '#1d4ed8' }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    fractionChart = new Chart(document.getElementById('fractionChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Fracionados', 'Sem fração'],
+        datasets: [{ data: [withFraction, withoutFraction], backgroundColor: ['#ef4444', '#10b981'] }]
+      },
+      options: { responsive: true }
+    });
+  }
+
+  function updateTable(rows) {
+    const tbody = document.querySelector('#resultTable tbody');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.dt}</td><td>${r.cliente}</td><td>${r.data}</td><td>${r.material}</td><td>${r.fardos}</td><td>${r.paletes}</td><td>${r.fracao}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function convertRows(rawRows) {
+    const parsed = rawRows.map(r => normalizeKeys(r));
+    const out = [];
+    let withFraction = 0, withoutFraction = 0;
+    const fracByClient = {};
+
+    parsed.forEach(r => {
+      const materialRaw = String(r['material'] ?? r['sku'] ?? '').replace(/\D/g, '');
+      const fardos = parseFardos(r['qtde'] ?? r['quantidade'] ?? r['fardos'] ?? 0);
+      const porPalete = SKU_POR_PALETE[materialRaw];
+      if (!materialRaw || !porPalete || fardos <= 0) return;
+
+      const paletesInteiros = Math.floor(fardos / porPalete);
+      const sobra = fardos % porPalete;
+      const fracao = sobra > 0 ? `${sobra}/${porPalete}` : '0';
+      const isFractioned = sobra > 0;
+
+      const cliente = String(r['nome cliente/fornecedor'] ?? r['cliente'] ?? 'N/I').trim();
+      const dt = String(r['dt'] ?? r['global trnsp.nº'] ?? r['global trnsp.n°'] ?? '').trim();
+      const data = String(r['data'] ?? r['carregardata'] ?? r['agendamentodata'] ?? '').trim();
+
+      out.push({
+        dt,
+        cliente,
+        data,
+        material: materialRaw,
+        fardos,
+        paletes: paletesInteiros,
+        fracao
+      });
+
+      if (isFractioned) {
+        withFraction++;
+        fracByClient[cliente] = (fracByClient[cliente] || 0) + 1;
+      } else {
+        withoutFraction++;
+      }
+    });
+
+    const total = withFraction + withoutFraction;
+    const pct = total ? ((withFraction / total) * 100).toFixed(1) : '0.0';
+    const top3 = Object.entries(fracByClient)
+      .map(([cliente, qtd]) => ({ cliente, qtd }))
+      .sort((a,b) => b.qtd - a.qtd)
+      .slice(0,3);
+
+    document.getElementById('withFraction').textContent = withFraction;
+    document.getElementById('withoutFraction').textContent = withoutFraction;
+    document.getElementById('fractionPct').textContent = `${pct}%`;
+
+    drawCharts(withFraction, withoutFraction, top3);
+    updateTable(out);
+    convertedRows = out;
+    document.getElementById('downloadCsvBtn').disabled = out.length === 0;
+  }
+
+  function parseFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'csv') {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: result => convertRows(result.data)
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      convertRows(json);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  document.getElementById('fileInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) parseFile(file);
+  });
+
+  document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+    const csv = Papa.unparse(convertedRows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'materiais_convertidos.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>
