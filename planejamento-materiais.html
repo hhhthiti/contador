@@ -23,11 +23,20 @@
     tr:nth-child(even) { background: #f8fafc; }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+    .hidden { display:none !important; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { max-width: 100%; }
+      .card { box-shadow: none; border-radius: 0; margin: 0; }
+      .no-print { display:none !important; }
+      #colResumo { display:none !important; }
+      #colDetalhe { grid-column: 1 / -1; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="card">
+    <div class="card no-print">
       <h1>Planejamento de Materiais por Hora</h1>
       <div class="hint">
         Suba a planilha CSV com as colunas <b>Hora Agendamento</b>, <b>Material</b> e <b>Qtde Remessa</b>.<br>
@@ -54,8 +63,8 @@
 
     <div id="resultado" class="card" style="display:none;">
       <div class="split">
-        <div>
-          <h3>Resumo por hora e material</h3>
+        <div id="colResumo">
+          <h3 id="tituloResumo">Resumo por hora e material</h3>
           <table>
             <thead>
               <tr><th>Hora</th><th>Material</th><th>Paletes</th><th>Fardos</th></tr>
@@ -63,8 +72,8 @@
             <tbody id="tbodyResumo"></tbody>
           </table>
         </div>
-        <div>
-          <h3>Lista detalhada do dia</h3>
+        <div id="colDetalhe">
+          <h3 id="tituloDetalhe">Lista detalhada do dia</h3>
           <table>
             <thead>
               <tr><th>Hora</th><th>Material</th><th>Paletes</th><th>Fardos/Palete</th><th>Fardos Total</th></tr>
@@ -169,6 +178,20 @@ function aplicarFiltroSaida() {
   const fResumo = ultimoResumo.filter(r => horaNoModo(r.hora, modo));
   const fDetalhe = ultimoDetalhado.filter(r => horaNoModo(r.hora, modo));
 
+  const colResumo = document.getElementById('colResumo');
+  const colDetalhe = document.getElementById('colDetalhe');
+  const tituloDetalhe = document.getElementById('tituloDetalhe');
+
+  if (modo === 'dia') {
+    colResumo.classList.add('hidden');
+    colDetalhe.style.gridColumn = '1 / -1';
+    tituloDetalhe.textContent = 'Lista do dia (única planilha)';
+  } else {
+    colResumo.classList.remove('hidden');
+    colDetalhe.style.gridColumn = '';
+    tituloDetalhe.textContent = 'Lista detalhada por faixa de horário';
+  }
+
   renderTabela('tbodyResumo', fResumo, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
   renderTabela('tbodyDetalhe', fDetalhe, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosPorPalete)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
 }
@@ -191,7 +214,16 @@ function imprimirPlanejamento(){
 function gerarPdfPlanejamento(){
   if (!ultimoResumo.length && !ultimoDetalhado.length) return erro('Gere a lista antes de exportar PDF.');
   aplicarFiltroSaida();
+
+  const colResumo = document.getElementById('colResumo');
+  const estavaOculto = colResumo.classList.contains('hidden');
+  colResumo.classList.add('hidden');
+
   window.print();
+
+  if (!estavaOculto && document.getElementById('modoSaida').value !== 'dia') {
+    colResumo.classList.remove('hidden');
+  }
 }
 
 function acharColuna(linha, nomes){
