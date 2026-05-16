@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planejamento de Materiais por Hora</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f3f5f9; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.08); padding: 18px; margin-bottom: 16px; }
+    h1 { margin: 0 0 10px 0; color: #c8102e; }
+    .hint { color: #4b5563; margin-bottom: 12px; }
+    input[type=file] { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; }
+    .btns { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    button { border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+    .btn-primary { background: #005bbb; color: #fff; }
+    .btn-secondary { background: #64748b; color: #fff; }
+    .erro { display: none; margin-top: 10px; background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 8px; }
+    .ok { margin-top: 10px; color: #0f5132; font-size: .9rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .9rem; }
+    th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+    th { background: #003f88; color: #fff; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Planejamento de Materiais por Hora</h1>
+      <div class="hint">
+        Suba a planilha CSV com as colunas <b>Hora Agendamento</b>, <b>Material</b> e <b>Qtde Remessa</b>.<br>
+        A ferramenta agrupa por hora e calcula também os <b>fardos</b> com base na tabela fixa de SKU.
+      </div>
+      <input id="csvInput" type="file" accept=".csv,text/csv" />
+      <div class="btns">
+        <button class="btn-primary" onclick="processar()">Gerar lista do dia</button>
+        <button class="btn-secondary" onclick="limpar()">Limpar</button>
+      </div>
+      <div id="erro" class="erro"></div>
+      <div id="status" class="ok"></div>
+    </div>
+
+    <div id="resultado" class="card" style="display:none;">
+      <div class="split">
+        <div>
+          <h3>Resumo por hora e material</h3>
+          <table>
+            <thead>
+              <tr><th>Hora</th><th>Material</th><th>Paletes</th><th>Fardos</th></tr>
+            </thead>
+            <tbody id="tbodyResumo"></tbody>
+          </table>
+        </div>
+        <div>
+          <h3>Lista detalhada do dia</h3>
+          <table>
+            <thead>
+              <tr><th>Hora</th><th>Material</th><th>Paletes</th><th>Fardos/Palete</th><th>Fardos Total</th></tr>
+            </thead>
+            <tbody id="tbodyDetalhe"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const FARDOS_POR_SKU = {
+  '20104414':36,'20104415':36,'20104416':36,'20104419':33,'20104418':28,'20106704':36,'20106705':36,'20104405':48,
+  '20104407':32,'20104410':36,'20104412':28,'20104413':36,'20104409':36,'20104408':36,'20081464':36,'20081466':36,
+  '20081481':28,'20081961':36,'20089387':24,'20095269':36,'20081984':28,'20081465':36,'20081467':36,'20081469':28,
+  '20111061':36,'20104309':45,'20104421':63,'20104422':65,'20109594':56,'20104430':15,'20104429':27,'20104426':27,
+  '20104313':36,'20104425':36,'20104312':36,'20110078':36,'20091834':36,'20091835':42,'30227945':15,'30179006':18,
+  '30228198':15,'20109727':24,'20091836':36,'20104310':225,'20104423':42,'20103075':36,'20081471':36,'90004854':30,
+  '20104427':14,'20105277':27,'20104420':63,'20104417':32,'20097397':30,'20104311':66,'20081482':36,'20081579':30,
+  '20108498':24,'20109735':36,'20109736':36
+};
+
+let linhas = [];
+
+document.getElementById('csvInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const texto = await file.text();
+  linhas = parseCsv(texto);
+  document.getElementById('status').textContent = `CSV carregado com ${linhas.length} linhas.`;
+});
+
+function parseCsv(texto) {
+  const raw = texto.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+  if (raw.length < 2) return [];
+  const d = detectarDelim(raw[0]);
+  const head = splitCsv(raw[0], d).map(h => h.trim());
+  return raw.slice(1).map(l => {
+    const vals = splitCsv(l, d);
+    const o = {};
+    head.forEach((h, i) => o[h] = (vals[i] || '').trim());
+    return o;
+  });
+}
+
+function detectarDelim(l) { return [';','\t',','].sort((a,b)=>splitCsv(l,b).length - splitCsv(l,a).length)[0]; }
+
+function splitCsv(line, delim) {
+  const out = []; let cur=''; let q=false;
+  for (let i=0;i<line.length;i++) {
+    const c = line[i];
+    if (c === '"') { if (q && line[i+1] === '"') { cur += '"'; i++; } else q=!q; continue; }
+    if (c === delim && !q) { out.push(cur); cur=''; continue; }
+    cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function processar() {
+  erro('');
+  if (!linhas.length) return erro('Suba um CSV antes de processar.');
+
+  const colHora = acharColuna(linhas[0], ['Hora Agendamento']);
+  const colMaterial = acharColuna(linhas[0], ['Material']);
+  const colQtde = acharColuna(linhas[0], ['Qtde Remessa']);
+  if (!colHora || !colMaterial || !colQtde) return erro('Não encontrei as colunas: Hora Agendamento, Material e Qtde Remessa.');
+
+  const detalhado = [];
+  const resumoMap = new Map();
+
+  linhas.forEach(l => {
+    const hora = normalizarHora(l[colHora]);
+    const material = apenasDigitos(l[colMaterial]);
+    const paletes = parseNumero(l[colQtde]);
+    if (!hora || !material || !paletes) return;
+    const fardosPorPalete = FARDOS_POR_SKU[material] || 0;
+    const fardosTotal = paletes * fardosPorPalete;
+    detalhado.push({ hora, material, paletes, fardosPorPalete, fardosTotal });
+    const key = `${hora}|${material}`;
+    if (!resumoMap.has(key)) resumoMap.set(key, { hora, material, paletes: 0, fardosTotal: 0 });
+    const item = resumoMap.get(key);
+    item.paletes += paletes;
+    item.fardosTotal += fardosTotal;
+  });
+
+  detalhado.sort((a,b)=>a.hora.localeCompare(b.hora) || a.material.localeCompare(b.material));
+  const resumo = Array.from(resumoMap.values()).sort((a,b)=>a.hora.localeCompare(b.hora) || a.material.localeCompare(b.material));
+
+  renderTabela('tbodyResumo', resumo, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
+  renderTabela('tbodyDetalhe', detalhado, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosPorPalete)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
+  document.getElementById('resultado').style.display = 'block';
+}
+
+function acharColuna(linha, nomes){
+  const keys = Object.keys(linha);
+  for (const n of nomes) {
+    const achou = keys.find(k => k.trim().toLowerCase() === n.toLowerCase());
+    if (achou) return achou;
+  }
+  return null;
+}
+
+function normalizarHora(v){
+  const txt=(v||'').trim();
+  const m=txt.match(/(\d{1,2})[:hH]?(\d{2})?/);
+  if(!m) return '';
+  const hh = m[1].padStart(2,'0');
+  return `${hh}:00`;
+}
+function parseNumero(v){ const n=Number(String(v).replace(/\./g,'').replace(',','.')); return Number.isFinite(n)?n:0; }
+function apenasDigitos(v){ return String(v||'').replace(/\D/g,''); }
+function renderTabela(id, rows, rowTpl){ document.getElementById(id).innerHTML = rows.map(rowTpl).join('') || '<tr><td colspan="5">Sem dados válidos.</td></tr>'; }
+function fmt(n){ return new Intl.NumberFormat('pt-BR').format(n); }
+function erro(msg){ const e=document.getElementById('erro'); e.textContent=msg; e.style.display=msg?'block':'none'; }
+function limpar(){ linhas=[]; document.getElementById('csvInput').value=''; document.getElementById('resultado').style.display='none'; document.getElementById('status').textContent=''; erro(''); }
+</script>
+</body>
+</html>
