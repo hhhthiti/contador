@@ -38,6 +38,16 @@
         <button class="btn-primary" onclick="processar()">Gerar lista do dia</button>
         <button class="btn-secondary" onclick="limpar()">Limpar</button>
       </div>
+      <div class="btns" style="margin-top:8px;">
+        <select id="modoSaida" style="padding:10px;border:1px solid #d1d5db;border-radius:8px;">
+          <option value="dia">Dia completo</option>
+          <option value="manha">Por hora (06 às 13)</option>
+          <option value="tarde">Por hora (14 às 23)</option>
+          <option value="madrugada">Por hora (00 às 05)</option>
+        </select>
+        <button class="btn-primary" onclick="imprimirPlanejamento()">Imprimir</button>
+        <button class="btn-secondary" onclick="gerarPdfPlanejamento()">Gerar PDF</button>
+      </div>
       <div id="erro" class="erro"></div>
       <div id="status" class="ok"></div>
     </div>
@@ -79,6 +89,8 @@ const FARDOS_POR_SKU = {
 };
 
 let linhas = [];
+let ultimoResumo = [];
+let ultimoDetalhado = [];
 
 document.getElementById('csvInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -145,9 +157,41 @@ function processar() {
   detalhado.sort((a,b)=>a.hora.localeCompare(b.hora) || a.material.localeCompare(b.material));
   const resumo = Array.from(resumoMap.values()).sort((a,b)=>a.hora.localeCompare(b.hora) || a.material.localeCompare(b.material));
 
-  renderTabela('tbodyResumo', resumo, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
-  renderTabela('tbodyDetalhe', detalhado, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosPorPalete)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
+  ultimoResumo = resumo;
+  ultimoDetalhado = detalhado;
+  aplicarFiltroSaida();
   document.getElementById('resultado').style.display = 'block';
+}
+
+
+function aplicarFiltroSaida() {
+  const modo = document.getElementById('modoSaida').value;
+  const fResumo = ultimoResumo.filter(r => horaNoModo(r.hora, modo));
+  const fDetalhe = ultimoDetalhado.filter(r => horaNoModo(r.hora, modo));
+
+  renderTabela('tbodyResumo', fResumo, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
+  renderTabela('tbodyDetalhe', fDetalhe, r => `<tr><td>${r.hora}</td><td>${r.material}</td><td>${fmt(r.paletes)}</td><td>${fmt(r.fardosPorPalete)}</td><td>${fmt(r.fardosTotal)}</td></tr>`);
+}
+
+function horaNoModo(hora, modo){
+  if (modo === 'dia') return true;
+  const hh = Number((hora || '00').split(':')[0]);
+  if (modo === 'manha') return hh >= 6 && hh <= 13;
+  if (modo === 'tarde') return hh >= 14 && hh <= 23;
+  if (modo === 'madrugada') return hh >= 0 && hh <= 5;
+  return true;
+}
+
+function imprimirPlanejamento(){
+  if (!ultimoResumo.length && !ultimoDetalhado.length) return erro('Gere a lista antes de imprimir.');
+  aplicarFiltroSaida();
+  window.print();
+}
+
+function gerarPdfPlanejamento(){
+  if (!ultimoResumo.length && !ultimoDetalhado.length) return erro('Gere a lista antes de exportar PDF.');
+  aplicarFiltroSaida();
+  window.print();
 }
 
 function acharColuna(linha, nomes){
@@ -171,7 +215,8 @@ function apenasDigitos(v){ return String(v||'').replace(/\D/g,''); }
 function renderTabela(id, rows, rowTpl){ document.getElementById(id).innerHTML = rows.map(rowTpl).join('') || '<tr><td colspan="5">Sem dados válidos.</td></tr>'; }
 function fmt(n){ return new Intl.NumberFormat('pt-BR').format(n); }
 function erro(msg){ const e=document.getElementById('erro'); e.textContent=msg; e.style.display=msg?'block':'none'; }
-function limpar(){ linhas=[]; document.getElementById('csvInput').value=''; document.getElementById('resultado').style.display='none'; document.getElementById('status').textContent=''; erro(''); }
+function limpar(){ linhas=[]; ultimoResumo=[]; ultimoDetalhado=[]; document.getElementById('csvInput').value=''; document.getElementById('resultado').style.display='none'; document.getElementById('status').textContent=''; erro(''); }
+document.getElementById('modoSaida').addEventListener('change', aplicarFiltroSaida);
 </script>
 </body>
 </html>
