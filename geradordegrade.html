@@ -240,8 +240,8 @@
         <div class="grid">
           <div>
             <label for="fileInput">Arquivo da agenda</label>
-            <input id="fileInput" type="file" accept=".csv,.txt,.tsv" />
-            <p class="hint">Aceita CSV separado por tabulação, ponto e vírgula ou vírgula.</p>
+            <input id="fileInput" type="file" accept=".xls,.xlsx,.csv,.txt,.tsv" />
+            <p class="hint">Aceita agenda em Excel (.xls/.xlsx) e também CSV/TXT/TSV.</p>
           </div>
 
           <div>
@@ -274,14 +274,14 @@
           <div class="stat"><strong id="totalRows">0</strong><span>linhas lidas</span></div>
           <div class="stat"><strong id="keptRows">0</strong><span>linhas na grade</span></div>
           <div class="stat"><strong id="removedRows">0</strong><span>linhas removidas</span></div>
-          <div class="stat"><strong id="detectedDelimiter">-</strong><span>separador detectado</span></div>
+          <div class="stat"><strong id="detectedDelimiter">-</strong><span>formato detectado</span></div>
         </div>
       </section>
 
       <section class="panel">
         <h2>Regras aplicadas</h2>
         <ul class="rules">
-          <li>Exporta apenas: <strong>DT</strong>, <strong>DOCA</strong>, <strong>NOME TRANSPORTADORA</strong>, <strong>AGENDA TRANSPORTADOR</strong> e <strong>FIM AGENDA TRANSPORTADOR</strong>.</li>
+          <li>Importa agenda em <strong>XLS/XLSX</strong> e exporta em <strong>CSV</strong> apenas com: <strong>DT</strong>, <strong>DOCA</strong>, <strong>NOME TRANSPORTADORA</strong>, <strong>AGENDA TRANSPORTADOR</strong> e <strong>FIM AGENDA TRANSPORTADOR</strong>.</li>
           <li>Mantém apenas <strong>LOCAL</strong> terminado em <strong>1110</strong> ou <strong>1111</strong>.</li>
           <li>Remove docas vazias/nulas e <strong>DOCA_1_FAB_MOG</strong>, <strong>DOCA_2_FAB_MOG</strong> etc.; mantém variações com <strong>_IFNT</strong>, como <strong>DOCA_10_FAB_MOG_IFNT</strong>.</li>
           <li>Filtra <strong>AGENDA TRANSPORTADOR</strong> pelo dia inicial selecionado e pelo próximo dia.</li>
@@ -310,6 +310,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     const requiredColumns = [
       'DT',
@@ -382,34 +383,106 @@
       return cells.map(cell => cell.trim());
     }
 
-    function parseCsv(text) {
+    async function parseAgendaFile(file) {
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (['xls', 'xlsx', 'xlsm'].includes(extension)) {
+        return parseSpreadsheetFile(file);
+      }
+
+      const text = await file.text();
+      return parseDelimitedText(text);
+    }
+
+    async function parseSpreadsheetFile(file) {
+      const buffer = await file.arrayBuffer();
+      const extension = extensionLabel(file.name);
+
+      if (typeof XLSX !== 'undefined') {
+        const workbook = XLSX.read(buffer, {
+          type: 'array',
+          cellDates: true,
+          raw: false
+        });
+        const firstSheet = workbook.SheetNames[0];
+        if (!firstSheet) throw new Error('A planilha não possui abas para leitura.');
+
+        const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], {
+          header: 1,
+          defval: '',
+          raw: false,
+          dateNF: 'dd/mm/yyyy hh:mm'
+        });
+
+        return parseMatrix(matrix, `Excel (${extension})`);
+      }
+
+      const text = new TextDecoder('utf-8').decode(buffer);
+      if (/<table[\s>]/i.test(text)) {
+        return parseHtmlSpreadsheet(text, `Excel HTML (${extension})`);
+      }
+
+      throw new Error('Não foi possível carregar o leitor de XLS. Verifique sua conexão e tente novamente, ou salve a agenda como CSV.');
+    }
+
+    function extensionLabel(fileName) {
+      return fileName.split('.').pop().toUpperCase();
+    }
+
+    function parseDelimitedText(text) {
       const cleanText = text.replace(/^\uFEFF/, '');
       const delimiter = detectDelimiter(cleanText);
       const lines = cleanText.split(/\r?\n/).filter(line => line.trim());
+      const matrix = lines.map(line => splitCsvLine(line, delimiter));
+      const label = delimiter === '\t' ? 'TAB' : delimiter;
+      return parseMatrix(matrix, `CSV (${label})`);
+    }
 
-      if (lines.length < 2) {
+    function parseHtmlSpreadsheet(text, source) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const table = doc.querySelector('table');
+      if (!table) throw new Error('Nenhuma tabela foi encontrada no arquivo XLS.');
+
+      const matrix = Array.from(table.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th, td')).map(cell => cell.textContent.trim())
+      );
+
+      return parseMatrix(matrix, source);
+    }
+
+    function parseMatrix(matrix, source) {
+      const rowsWithContent = matrix.filter(row => row.some(cell => String(cell || '').trim()));
+
+      if (rowsWithContent.length < 2) {
         throw new Error('O arquivo precisa ter cabeçalho e pelo menos uma linha de dados.');
       }
 
-      const headers = splitCsvLine(lines[0], delimiter);
-      const headerMap = new Map(headers.map((header, index) => [normalizeHeader(header), index]));
+      const headerIndex = rowsWithContent.findIndex(row => {
+        const normalized = row.map(normalizeHeader);
+        return normalized.includes('LOCAL') && requiredColumns.every(column => normalized.includes(normalizeHeader(column)));
+      });
+
+      if (headerIndex === -1) {
+        throw new Error(`Colunas obrigatórias não encontradas: LOCAL, ${requiredColumns.join(', ')}.`);
+      }
+
+      const headers = rowsWithContent[headerIndex].map(normalizeHeader);
       const missing = ['LOCAL', ...requiredColumns]
-        .filter(column => !headerMap.has(normalizeHeader(column)));
+        .filter(column => !headers.includes(normalizeHeader(column)));
 
       if (missing.length) {
         throw new Error(`Colunas obrigatórias não encontradas: ${missing.join(', ')}.`);
       }
 
-      const rows = lines.slice(1).map(line => {
-        const cells = splitCsvLine(line, delimiter);
+      const rows = rowsWithContent.slice(headerIndex + 1).map(cells => {
         const row = {};
         headers.forEach((header, index) => {
-          row[normalizeHeader(header)] = cells[index] || '';
+          row[header] = cells[index] ?? '';
         });
         return row;
       });
 
-      return { rows, delimiter };
+      return { rows, source };
     }
 
     function parseDateOnly(value) {
@@ -489,14 +562,13 @@
         const file = fileInput.files[0];
         if (!file) throw new Error('Selecione o arquivo da agenda antes de gerar a grade.');
 
-        const text = await file.text();
-        const parsed = parseCsv(text);
+        const parsed = await parseAgendaFile(file);
         generatedRows = processRows(parsed.rows, startDateInput.value);
 
         totalRows.textContent = parsed.rows.length;
         keptRows.textContent = generatedRows.length;
         removedRows.textContent = parsed.rows.length - generatedRows.length;
-        detectedDelimiter.textContent = parsed.delimiter === '\t' ? 'TAB' : parsed.delimiter;
+        detectedDelimiter.textContent = parsed.source;
         renderPreview(generatedRows);
         downloadButton.disabled = generatedRows.length === 0;
 
