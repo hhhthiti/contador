@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Grade CSV</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --primary: #d32f2f;
+      --primary-dark: #9a0007;
+      --bg-start: #1f1c2c;
+      --bg-end: #928dab;
+      --card: #ffffff;
+      --text: #2f2f2f;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --success: #0f766e;
+      --warning: #b45309;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+      color: var(--text);
+    }
+
+    .container {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+
+    header {
+      padding: 24px;
+      background: linear-gradient(135deg, #ffffff, #f8fafc);
+      border-bottom: 4px solid var(--primary);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 4vw, 32px);
+      color: #111827;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    main { padding: 24px; }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
+      background: #fff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    input, select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+      background: #fff;
+    }
+
+    .hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button, .back-link {
+      min-height: 44px;
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.2s, filter 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:hover, .back-link:hover { transform: translateY(-1px); filter: brightness(1.04); }
+    button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
+
+    .primary { background: var(--primary); color: #fff; }
+    .secondary { background: #334155; color: #fff; }
+    .ghost { background: #e5e7eb; color: #111827; }
+    .back-link { background: #f3f4f6; color: #111827; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .stat {
+      padding: 14px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 24px;
+      color: var(--primary-dark);
+    }
+
+    .stat span { color: var(--muted); font-size: 13px; }
+
+    .message {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+      line-height: 1.4;
+      display: none;
+    }
+
+    .message.error {
+      display: block;
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .message.success {
+      display: block;
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: var(--success);
+    }
+
+    .message.warning {
+      display: block;
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: var(--warning);
+    }
+
+    .table-wrap {
+      max-height: 430px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #111827;
+      color: #fff;
+      z-index: 1;
+    }
+
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    .rules {
+      margin: 0;
+      padding-left: 18px;
+      color: #4b5563;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+      main, header { padding: 18px; }
+      .actions button, .actions .back-link { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📅 Gerador de Grade CSV</h1>
+      <p class="subtitle">Importe a agenda, filtre por local 1110/1111, docas IFNT e período de dois dias para baixar a grade tratada em CSV.</p>
+    </header>
+
+    <main>
+      <section class="panel">
+        <div class="grid">
+          <div>
+            <label for="fileInput">Arquivo da agenda</label>
+            <input id="fileInput" type="file" accept=".csv,.txt,.tsv" />
+            <p class="hint">Aceita CSV separado por tabulação, ponto e vírgula ou vírgula.</p>
+          </div>
+
+          <div>
+            <label for="startDate">Dia inicial do filtro</label>
+            <input id="startDate" type="date" />
+            <p class="hint">Serão mantidas agendas do dia escolhido e do dia posterior.</p>
+          </div>
+
+          <div>
+            <label for="delimiterOutput">Separador do CSV gerado</label>
+            <select id="delimiterOutput">
+              <option value=";">Ponto e vírgula (;)</option>
+              <option value=",">Vírgula (,)</option>
+              <option value="\t">Tabulação</option>
+            </select>
+            <p class="hint">Use ponto e vírgula para facilitar a abertura no Excel PT-BR.</p>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="processButton" class="primary">⚙️ Gerar grade</button>
+          <button id="downloadButton" class="secondary" disabled>⬇️ Baixar CSV</button>
+          <button id="clearButton" class="ghost">🧹 Limpar</button>
+          <a class="back-link" href="index.html">⬅️ Voltar ao menu</a>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div class="stats" aria-live="polite">
+          <div class="stat"><strong id="totalRows">0</strong><span>linhas lidas</span></div>
+          <div class="stat"><strong id="keptRows">0</strong><span>linhas na grade</span></div>
+          <div class="stat"><strong id="removedRows">0</strong><span>linhas removidas</span></div>
+          <div class="stat"><strong id="detectedDelimiter">-</strong><span>separador detectado</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Regras aplicadas</h2>
+        <ul class="rules">
+          <li>Exporta apenas: <strong>DT</strong>, <strong>DOCA</strong>, <strong>NOME TRANSPORTADORA</strong>, <strong>AGENDA TRANSPORTADOR</strong> e <strong>FIM AGENDA TRANSPORTADOR</strong>.</li>
+          <li>Mantém apenas <strong>LOCAL</strong> terminado em <strong>1110</strong> ou <strong>1111</strong>.</li>
+          <li>Remove docas vazias/nulas e <strong>DOCA_1_FAB_MOG</strong>, <strong>DOCA_2_FAB_MOG</strong> etc.; mantém variações com <strong>_IFNT</strong>, como <strong>DOCA_10_FAB_MOG_IFNT</strong>.</li>
+          <li>Filtra <strong>AGENDA TRANSPORTADOR</strong> pelo dia inicial selecionado e pelo próximo dia.</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Prévia da grade</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>DT</th>
+                <th>DOCA</th>
+                <th>NOME TRANSPORTADORA</th>
+                <th>AGENDA TRANSPORTADOR</th>
+                <th>FIM AGENDA TRANSPORTADOR</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody">
+              <tr><td colspan="5">Nenhuma grade gerada ainda.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const requiredColumns = [
+      'DT',
+      'DOCA',
+      'NOME TRANSPORTADORA',
+      'AGENDA TRANSPORTADOR',
+      'FIM AGENDA TRANSPORTADOR'
+    ];
+
+    const fileInput = document.getElementById('fileInput');
+    const startDateInput = document.getElementById('startDate');
+    const delimiterOutput = document.getElementById('delimiterOutput');
+    const processButton = document.getElementById('processButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const clearButton = document.getElementById('clearButton');
+    const message = document.getElementById('message');
+    const previewBody = document.getElementById('previewBody');
+    const totalRows = document.getElementById('totalRows');
+    const keptRows = document.getElementById('keptRows');
+    const removedRows = document.getElementById('removedRows');
+    const detectedDelimiter = document.getElementById('detectedDelimiter');
+
+    let generatedRows = [];
+
+    processButton.addEventListener('click', processFile);
+    downloadButton.addEventListener('click', downloadCsv);
+    clearButton.addEventListener('click', clearAll);
+
+    function normalizeHeader(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
+    }
+
+    function detectDelimiter(text) {
+      const firstLine = text.split(/\r?\n/).find(line => line.trim()) || '';
+      const delimiters = ['\t', ';', ','];
+      return delimiters.reduce((best, delimiter) => {
+        const count = splitCsvLine(firstLine, delimiter).length;
+        return count > best.count ? { delimiter, count } : best;
+      }, { delimiter: ';', count: 0 }).delimiter;
+    }
+
+    function splitCsvLine(line, delimiter) {
+      const cells = [];
+      let current = '';
+      let insideQuotes = false;
+
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"' && insideQuotes && nextChar === '"') {
+          current += '"';
+          i += 1;
+        } else if (char === '"') {
+          insideQuotes = !insideQuotes;
+        } else if (char === delimiter && !insideQuotes) {
+          cells.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+
+      cells.push(current);
+      return cells.map(cell => cell.trim());
+    }
+
+    function parseCsv(text) {
+      const cleanText = text.replace(/^\uFEFF/, '');
+      const delimiter = detectDelimiter(cleanText);
+      const lines = cleanText.split(/\r?\n/).filter(line => line.trim());
+
+      if (lines.length < 2) {
+        throw new Error('O arquivo precisa ter cabeçalho e pelo menos uma linha de dados.');
+      }
+
+      const headers = splitCsvLine(lines[0], delimiter);
+      const headerMap = new Map(headers.map((header, index) => [normalizeHeader(header), index]));
+      const missing = ['LOCAL', ...requiredColumns]
+        .filter(column => !headerMap.has(normalizeHeader(column)));
+
+      if (missing.length) {
+        throw new Error(`Colunas obrigatórias não encontradas: ${missing.join(', ')}.`);
+      }
+
+      const rows = lines.slice(1).map(line => {
+        const cells = splitCsvLine(line, delimiter);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[normalizeHeader(header)] = cells[index] || '';
+        });
+        return row;
+      });
+
+      return { rows, delimiter };
+    }
+
+    function parseDateOnly(value) {
+      const text = String(value || '').trim();
+      if (!text) return null;
+
+      const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+
+      const br = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      if (br) {
+        const year = br[3].length === 2 ? Number(`20${br[3]}`) : Number(br[3]);
+        return new Date(year, Number(br[2]) - 1, Number(br[1]));
+      }
+
+      const excelSerial = Number(text.replace(',', '.'));
+      if (Number.isFinite(excelSerial) && excelSerial > 20000 && excelSerial < 80000) {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        excelEpoch.setUTCDate(excelEpoch.getUTCDate() + Math.floor(excelSerial));
+        return new Date(excelEpoch.getUTCFullYear(), excelEpoch.getUTCMonth(), excelEpoch.getUTCDate());
+      }
+
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) {
+        return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      }
+
+      return null;
+    }
+
+    function toDateKey(date) {
+      return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+    }
+
+    function addDays(date, days) {
+      const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    }
+
+    function localEndsWithAllowedCode(local) {
+      return /(1110|1111)\s*$/.test(String(local || '').trim());
+    }
+
+    function isAllowedDoca(doca) {
+      const normalized = String(doca || '').trim().toUpperCase();
+      if (!normalized || normalized === 'NULL' || normalized === 'NULO' || normalized === '-') return false;
+      if (/^DOCA_\d+_FAB_MOG$/.test(normalized)) return false;
+      return /^DOCA_\d+_FAB_MOG_IFNT/.test(normalized);
+    }
+
+    function processRows(rows, startDate) {
+      const selectedDate = parseDateOnly(startDate);
+      if (!selectedDate) throw new Error('Selecione um dia inicial válido para filtrar a agenda.');
+
+      const allowedDates = new Set([toDateKey(selectedDate), toDateKey(addDays(selectedDate, 1))]);
+
+      return rows
+        .filter(row => localEndsWithAllowedCode(row.LOCAL))
+        .filter(row => isAllowedDoca(row.DOCA))
+        .filter(row => {
+          const agendaDate = parseDateOnly(row['AGENDA TRANSPORTADOR']);
+          return agendaDate && allowedDates.has(toDateKey(agendaDate));
+        })
+        .map(row => ({
+          DT: row.DT,
+          DOCA: row.DOCA,
+          'NOME TRANSPORTADORA': row['NOME TRANSPORTADORA'],
+          'AGENDA TRANSPORTADOR': row['AGENDA TRANSPORTADOR'],
+          'FIM AGENDA TRANSPORTADOR': row['FIM AGENDA TRANSPORTADOR']
+        }));
+    }
+
+    async function processFile() {
+      try {
+        hideMessage();
+        const file = fileInput.files[0];
+        if (!file) throw new Error('Selecione o arquivo da agenda antes de gerar a grade.');
+
+        const text = await file.text();
+        const parsed = parseCsv(text);
+        generatedRows = processRows(parsed.rows, startDateInput.value);
+
+        totalRows.textContent = parsed.rows.length;
+        keptRows.textContent = generatedRows.length;
+        removedRows.textContent = parsed.rows.length - generatedRows.length;
+        detectedDelimiter.textContent = parsed.delimiter === '\t' ? 'TAB' : parsed.delimiter;
+        renderPreview(generatedRows);
+        downloadButton.disabled = generatedRows.length === 0;
+
+        if (generatedRows.length === 0) {
+          showMessage('warning', 'Nenhuma linha atendeu aos filtros. Confira o dia selecionado, LOCAL e DOCA.');
+        } else {
+          showMessage('success', `Grade gerada com ${generatedRows.length} linha(s). Clique em “Baixar CSV” para salvar.`);
+        }
+      } catch (error) {
+        generatedRows = [];
+        downloadButton.disabled = true;
+        renderPreview([]);
+        showMessage('error', error.message);
+      }
+    }
+
+    function escapeCsvCell(value, delimiter) {
+      const text = String(value ?? '');
+      const mustQuote = text.includes('"') || text.includes('\n') || text.includes('\r') || text.includes(delimiter);
+      const escaped = text.replace(/"/g, '""');
+      return mustQuote ? `"${escaped}"` : escaped;
+    }
+
+    function buildCsv(rows) {
+      const delimiter = delimiterOutput.value;
+      const header = requiredColumns.join(delimiter);
+      const body = rows.map(row => requiredColumns.map(column => escapeCsvCell(row[column], delimiter)).join(delimiter));
+      return `\uFEFF${[header, ...body].join('\r\n')}`;
+    }
+
+    function downloadCsv() {
+      if (!generatedRows.length) return;
+      const blob = new Blob([buildCsv(generatedRows)], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateSuffix = startDateInput.value || 'grade';
+      link.href = url;
+      link.download = `grade_agenda_${dateSuffix}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderPreview(rows) {
+      if (!rows.length) {
+        previewBody.innerHTML = '<tr><td colspan="5">Nenhuma grade gerada ainda.</td></tr>';
+        return;
+      }
+
+      previewBody.innerHTML = rows.slice(0, 200).map(row => `
+        <tr>
+          ${requiredColumns.map(column => `<td>${escapeHtml(row[column])}</td>`).join('')}
+        </tr>
+      `).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function clearAll() {
+      fileInput.value = '';
+      startDateInput.value = '';
+      generatedRows = [];
+      totalRows.textContent = '0';
+      keptRows.textContent = '0';
+      removedRows.textContent = '0';
+      detectedDelimiter.textContent = '-';
+      downloadButton.disabled = true;
+      renderPreview([]);
+      hideMessage();
+    }
+
+    function showMessage(type, text) {
+      message.className = `message ${type}`;
+      message.textContent = text;
+    }
+
+    function hideMessage() {
+      message.className = 'message';
+      message.textContent = '';
+    }
+  </script>
+</body>
+</html>
