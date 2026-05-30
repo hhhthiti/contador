@@ -312,12 +312,59 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    const requiredColumns = [
+    const outputColumns = [
       'DT',
       'DOCA',
       'NOME TRANSPORTADORA',
       'AGENDA TRANSPORTADOR',
       'FIM AGENDA TRANSPORTADOR'
+    ];
+
+    const requiredColumns = ['LOCAL', ...outputColumns];
+
+    const columnAliases = {
+      LOCAL: ['LOCAL'],
+      DT: ['DT'],
+      DOCA: ['DOCA'],
+      'NOME TRANSPORTADORA': ['NOME TRANSPORTADORA', 'TRANSPORTADORA'],
+      'AGENDA TRANSPORTADOR': ['AGENDA TRANSPORTADOR', 'AGENDA DO TRANSPORTADOR', 'AGENDA TRANSPORTADORA'],
+      'FIM AGENDA TRANSPORTADOR': ['FIM AGENDA TRANSPORTADOR', 'FIM DA AGENDA TRANSPORTADOR', 'FIM AGENDA DO TRANSPORTADOR']
+    };
+
+    const agendaColumnPositions = {
+      DT: 2,
+      LOCAL: 4,
+      DOCA: 8,
+      'NOME TRANSPORTADORA': 12,
+      'AGENDA TRANSPORTADOR': 20,
+      'FIM AGENDA TRANSPORTADOR': 22
+    };
+
+    const knownAgendaHeaders = [
+      'SHIPMENT',
+      'DATA CRIACAO SHIPMENT',
+      'DT',
+      'DATA PLANEJADA DE COLETA',
+      'LOCAL',
+      'TEMPO DE CARREGAMENTO',
+      'NOME ORIGEM',
+      'CIDADE DESTINO',
+      'DOCA',
+      'PESO',
+      'VOLUME',
+      'ID TRANSPORTADORA',
+      'NOME TRANSPORTADORA',
+      'ID MOTORISTA',
+      'NOME MOTORISTA',
+      'TIPO VEICULO',
+      'PLACA VEICULO',
+      'PLACA COMPOSICAO 1',
+      'PLACA COMPOSICAO 2',
+      'PLACA COMPOSICAO 3',
+      'AGENDA TRANSPORTADOR',
+      'HORA DO AGENDAMENTO',
+      'FIM AGENDA TRANSPORTADOR',
+      'USUARIO DO AGENDAMENTO'
     ];
 
     const fileInput = document.getElementById('fileInput');
@@ -343,9 +390,23 @@
       return String(value || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\r\n\t]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .toUpperCase();
+    }
+
+    function compactHeader(value) {
+      return normalizeHeader(value).replace(/[^A-Z0-9]/g, '');
+    }
+
+    function headerMatches(header, column) {
+      const compact = compactHeader(header);
+      return (columnAliases[column] || [column]).some(alias => compact === compactHeader(alias));
+    }
+
+    function findColumnIndex(headers, column) {
+      return headers.findIndex(header => headerMatches(header, column));
     }
 
     function detectDelimiter(text) {
@@ -457,27 +518,55 @@
         throw new Error('O arquivo precisa ter cabeçalho e pelo menos uma linha de dados.');
       }
 
-      const headerIndex = rowsWithContent.findIndex(row => {
-        const normalized = row.map(normalizeHeader);
-        return normalized.includes('LOCAL') && requiredColumns.every(column => normalized.includes(normalizeHeader(column)));
-      });
-
+      const headerIndex = findHeaderIndex(rowsWithContent);
       if (headerIndex === -1) {
-        throw new Error(`Colunas obrigatórias não encontradas: LOCAL, ${requiredColumns.join(', ')}.`);
+        throw new Error('Não encontrei a linha de cabeçalho da agenda. Confira se a planilha possui as colunas SHIPMENT, DT, LOCAL, DOCA e AGENDA TRANSPORTADOR.');
       }
 
-      const headers = rowsWithContent[headerIndex].map(normalizeHeader);
-      const missing = ['LOCAL', ...requiredColumns]
-        .filter(column => !headers.includes(normalizeHeader(column)));
+      const headers = rowsWithContent[headerIndex];
+      const columnIndexes = buildColumnIndexes(headers);
+      const missing = requiredColumns.filter(column => columnIndexes[column] === -1);
 
       if (missing.length) {
-        throw new Error(`Colunas obrigatórias não encontradas: ${missing.join(', ')}.`);
+        const fallbackIndexes = buildPositionalColumnIndexes(headers);
+        const fallbackMissing = requiredColumns.filter(column => fallbackIndexes[column] === -1);
+        if (fallbackMissing.length) {
+          throw new Error(`Colunas obrigatórias não encontradas: ${missing.join(', ')}. A ordem esperada da agenda é: ${knownAgendaHeaders.join(' | ')}.`);
+        }
+        return buildRowsFromIndexes(rowsWithContent, headerIndex, fallbackIndexes, `${source} (ordem padrão da agenda)`);
       }
 
+      return buildRowsFromIndexes(rowsWithContent, headerIndex, columnIndexes, source);
+    }
+
+    function findHeaderIndex(rowsWithContent) {
+      return rowsWithContent.findIndex(row => {
+        const matchesByName = requiredColumns.filter(column => findColumnIndex(row, column) !== -1).length;
+        const knownMatches = row.filter((cell, index) => knownAgendaHeaders[index] && headerMatches(cell, knownAgendaHeaders[index])).length;
+        return matchesByName >= 4 || knownMatches >= 6;
+      });
+    }
+
+    function buildColumnIndexes(headers) {
+      return requiredColumns.reduce((indexes, column) => {
+        indexes[column] = findColumnIndex(headers, column);
+        return indexes;
+      }, {});
+    }
+
+    function buildPositionalColumnIndexes(headers) {
+      const hasAgendaWidth = headers.length > Math.max(...Object.values(agendaColumnPositions));
+      return requiredColumns.reduce((indexes, column) => {
+        indexes[column] = hasAgendaWidth ? agendaColumnPositions[column] : -1;
+        return indexes;
+      }, {});
+    }
+
+    function buildRowsFromIndexes(rowsWithContent, headerIndex, columnIndexes, source) {
       const rows = rowsWithContent.slice(headerIndex + 1).map(cells => {
         const row = {};
-        headers.forEach((header, index) => {
-          row[header] = cells[index] ?? '';
+        requiredColumns.forEach(column => {
+          row[column] = cells[columnIndexes[column]] ?? '';
         });
         return row;
       });
@@ -594,8 +683,8 @@
 
     function buildCsv(rows) {
       const delimiter = delimiterOutput.value;
-      const header = requiredColumns.join(delimiter);
-      const body = rows.map(row => requiredColumns.map(column => escapeCsvCell(row[column], delimiter)).join(delimiter));
+      const header = outputColumns.join(delimiter);
+      const body = rows.map(row => outputColumns.map(column => escapeCsvCell(row[column], delimiter)).join(delimiter));
       return `\uFEFF${[header, ...body].join('\r\n')}`;
     }
 
@@ -621,7 +710,7 @@
 
       previewBody.innerHTML = rows.slice(0, 200).map(row => `
         <tr>
-          ${requiredColumns.map(column => `<td>${escapeHtml(row[column])}</td>`).join('')}
+          ${outputColumns.map(column => `<td>${escapeHtml(row[column])}</td>`).join('')}
         </tr>
       `).join('');
     }
