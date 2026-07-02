@@ -95,9 +95,7 @@
 
   const CAMPOS = [
     { id:'dataRegistrado', label:'Data Registrado' },
-    { id:'dataEntrada', label:'Data Entrada' },
     { id:'horaRegistrado', label:'Hora Registrado' },
-    { id:'inicio', label:'Inicio' },
     { id:'dt', label:'DT' },
     { id:'transportadora', label:'Tranportadora' },
     { id:'status', label:'Status' },
@@ -108,7 +106,7 @@
   ];
 
   const valores = {
-    dataRegistrado:'', dataEntrada:'', horaRegistrado:'', inicio:'', dt:'', transportadora:'',
+    dataRegistrado:'', horaRegistrado:'', dt:'', transportadora:'',
     status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:''
   };
 
@@ -161,24 +159,35 @@
     const linhas = normal.split('\n').map(l => l.trim()).filter(Boolean);
     const entrada = normal.match(/Data\s+Entrada\s*\/\s*In[ií]cio\s*\n?\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(?::\d{2})?/i)
       || normal.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(?::\d{2})?/);
-    const linhaVeiculo = linhaDepoisDe(linhas, /Ve[ií]culo/i) || '';
-    const placas = linhaVeiculo.match(/[A-Z]{3}-?[0-9][A-Z0-9][0-9]{2}/gi) || [];
+    const placas = extrairPlacas(linhas, normal);
 
     return {
       dataRegistrado: entrada?.[1] || '',
-      dataEntrada: entrada?.[1] || '',
       horaRegistrado: entrada?.[2] || '',
-      inicio: entrada?.[2] || '',
       dt: capturar(normal, /\bDT\s*[;:]\s*([A-Z0-9.-]+)/i),
       transportadora: extrairTransportadora(linhas),
       status: 'PÁTIO',
       nfEnviada: 'NÃO',
       cpfMotorista: capturar(normal, /CPF\s*[:;]\s*([\d.-]+)/i),
-      placaCavalo: placas[0] || capturar(normal, /Ve[ií]culo\s*\n\s*([A-Z0-9-]+)/i),
-      placaCarreta: placas[1] || capturar(normal, /Carreta\s*\n\s*([A-Z0-9-]+)/i)
+      placaCavalo: placas[0] || '',
+      placaCarreta: placas[1] || ''
     };
   }
 
+
+
+  function extrairPlacas(linhas, textoCompleto) {
+    const placaRegex = /\b[A-Z]{3}-?[A-Z0-9]{4}\b/gi;
+    const idxVeiculo = linhas.findIndex(l => /Ve[ií]culo/i.test(l));
+    const trechoPrioritario = idxVeiculo >= 0
+      ? linhas.slice(idxVeiculo, Math.min(linhas.length, idxVeiculo + 4)).join(' ')
+      : '';
+    const encontradas = [...trechoPrioritario.matchAll(placaRegex), ...textoCompleto.matchAll(placaRegex)]
+      .map(m => m[0].toUpperCase())
+      .filter(placa => /\d/.test(placa))
+      .filter((placa, idx, arr) => arr.indexOf(placa) === idx);
+    return encontradas.slice(0, 2);
+  }
 
   function extrairTransportadora(linhas) {
     const idx = linhas.findIndex(l => /^Transportadora\b/i.test(l));
@@ -259,7 +268,7 @@
   window.limparTudo = function limparTudo() {
     document.getElementById('pdfInput').value = '';
     document.getElementById('textoPdf').textContent = 'Nenhum PDF lido.';
-    preencherValores({ dataRegistrado:'', dataEntrada:'', horaRegistrado:'', inicio:'', dt:'', transportadora:'', status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:'' });
+    preencherValores({ dataRegistrado:'', horaRegistrado:'', dt:'', transportadora:'', status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:'' });
     renderCampos();
     limparMensagens();
   };
