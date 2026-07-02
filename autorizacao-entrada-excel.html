@@ -192,7 +192,7 @@
       ? linhas.slice(idxVeiculo, Math.min(linhas.length, idxVeiculo + 4)).join(' ')
       : '';
     const encontradas = [...trechoPrioritario.matchAll(placaRegex), ...textoCompleto.matchAll(placaRegex)]
-      .map(m => m[0].toUpperCase())
+      .map(m => m[0].toUpperCase().replace(/-/g, ''))
       .filter(placa => /\d/.test(placa))
       .filter((placa, idx, arr) => arr.indexOf(placa) === idx);
     return encontradas.slice(0, 2);
