@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Autorização para Excel</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs" type="module"></script>
+  <style>
+    :root { --red:#cf102d; --blue:#003f88; --green:#15803d; --gray:#64748b; }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:20px; font-family:'Segoe UI', Arial, sans-serif; background:#f2f5f9; color:#1f2937; }
+    .container { max-width:1100px; margin:0 auto; }
+    .card { background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(15,23,42,.08); padding:18px; margin-bottom:16px; }
+    .header { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:2px solid var(--red); padding-bottom:12px; margin-bottom:14px; }
+    h1 { margin:0; color:var(--red); font-size:1.35rem; }
+    .muted { color:#64748b; font-size:.92rem; margin-top:4px; }
+    .logos { display:flex; gap:10px; align-items:center; }
+    .logos img { height:38px; object-fit:contain; }
+    label { display:block; font-weight:700; margin-bottom:6px; }
+    input[type=file], input[type=text], textarea { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:10px; font:inherit; background:#fff; }
+    textarea { min-height:74px; resize:vertical; font-family:Consolas, 'Courier New', monospace; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+    .btns { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    button { border:0; border-radius:10px; padding:10px 14px; color:#fff; cursor:pointer; font-weight:700; }
+    .btn-primary { background:var(--blue); }
+    .btn-success { background:var(--green); }
+    .btn-gray { background:var(--gray); }
+    .msg { display:none; border-radius:10px; padding:10px; margin-top:12px; }
+    .erro { background:#fee2e2; color:#991b1b; }
+    .ok { background:#dcfce7; color:#14532d; }
+    table { width:100%; border-collapse:collapse; font-size:.92rem; margin-top:12px; }
+    th, td { border:1px solid #d8dee8; padding:8px; text-align:left; vertical-align:top; }
+    th { background:var(--blue); color:#fff; }
+    td input { border:0; padding:4px; border-radius:0; min-width:115px; }
+    .small { font-size:.82rem; color:#475569; }
+    .raw { max-height:180px; overflow:auto; white-space:pre-wrap; font-family:Consolas, 'Courier New', monospace; background:#0f172a; color:#e2e8f0; border-radius:10px; padding:10px; margin-top:10px; }
+    @media (max-width:700px) { .header { align-items:flex-start; flex-direction:column; } .logos img { height:30px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div>
+          <h1>PDF Autorização → linha para Excel</h1>
+          <div class="muted">Selecione o PDF de Autorização de Entrada/Serviço. A tela extrai os campos e monta uma linha separada por TAB para colar direto no Excel.</div>
+        </div>
+        <div class="logos">
+          <img src="icons/JSL.png" alt="Logo JSL" />
+          <img src="icons/suzano.svg" alt="Logo Suzano" />
+        </div>
+      </div>
+
+      <label for="pdfInput">Arquivo PDF</label>
+      <input id="pdfInput" type="file" accept="application/pdf" />
+
+      <div class="btns">
+        <button class="btn-primary" onclick="processarPdf()">Ler PDF</button>
+        <button class="btn-success" onclick="copiarLinha()">Copiar linha para Excel</button>
+        <button class="btn-gray" onclick="limparTudo()">Limpar</button>
+      </div>
+
+      <div id="ok" class="msg ok"></div>
+      <div id="erro" class="msg erro"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px; font-size:1.1rem;">Resultado editável</h2>
+      <div class="small">Campos fixos: <b>Status = PÁTIO</b> e <b>NF Enviada ao Transportador? = NÃO</b>. Se alguma leitura vier diferente, ajuste na tabela antes de copiar.</div>
+      <div style="overflow:auto;">
+        <table>
+          <thead><tr id="cabecalho"></tr></thead>
+          <tbody><tr id="linhaCampos"></tr></tbody>
+        </table>
+      </div>
+
+      <label for="linhaExcel" style="margin-top:14px;">Linha para colar no Excel</label>
+      <textarea id="linhaExcel" readonly></textarea>
+      <div class="btns">
+        <button class="btn-success" onclick="copiarLinha()">Copiar</button>
+        <button class="btn-gray" onclick="atualizarLinhaExcel()">Atualizar linha</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0; font-size:1.1rem;">Texto lido do PDF</h2>
+      <div class="small">Use esta área só para conferência quando o PDF tiver formatação diferente.</div>
+      <div id="textoPdf" class="raw">Nenhum PDF lido.</div>
+    </div>
+  </div>
+
+<script type="module">
+  import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
+
+  const CAMPOS = [
+    { id:'dataRegistrado', label:'Data Registrado' },
+    { id:'dataEntrada', label:'Data Entrada' },
+    { id:'horaRegistrado', label:'Hora Registrado' },
+    { id:'inicio', label:'Inicio' },
+    { id:'dt', label:'DT' },
+    { id:'transportadora', label:'Tranportadora' },
+    { id:'status', label:'Status' },
+    { id:'nfEnviada', label:'NF Enviada ao Transportador?' },
+    { id:'cpfMotorista', label:'CPF Motorista' },
+    { id:'placaCavalo', label:'Placa Cavalo' },
+    { id:'placaCarreta', label:'Placa Carreta' }
+  ];
+
+  const valores = {
+    dataRegistrado:'', dataEntrada:'', horaRegistrado:'', inicio:'', dt:'', transportadora:'',
+    status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:''
+  };
+
+  window.addEventListener('DOMContentLoaded', renderCampos);
+
+  window.processarPdf = async function processarPdf() {
+    limparMensagens();
+    const file = document.getElementById('pdfInput').files[0];
+    if (!file) return mostrarErro('Selecione um arquivo PDF.');
+
+    try {
+      mostrarOk('Lendo PDF...');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+      const linhas = [];
+
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p);
+        const content = await page.getTextContent();
+        const items = content.items.map(item => ({ str: item.str.trim(), x: item.transform[4], y: Math.round(item.transform[5]) })).filter(item => item.str);
+        const grupos = agruparLinhas(items);
+        linhas.push(...grupos);
+      }
+
+      const texto = linhas.join('\n');
+      document.getElementById('textoPdf').textContent = texto || 'Não foi possível extrair texto do PDF.';
+      preencherValores(extrairDados(texto));
+      renderCampos();
+      mostrarOk('PDF lido. Confira os campos e clique em copiar.');
+    } catch (err) {
+      mostrarErro('Falha ao ler o PDF: ' + err.message);
+    }
+  };
+
+  function agruparLinhas(items) {
+    const porY = new Map();
+    items.forEach(item => {
+      const key = item.y;
+      if (!porY.has(key)) porY.set(key, []);
+      porY.get(key).push(item);
+    });
+    return [...porY.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([, linha]) => linha.sort((a, b) => a.x - b.x).map(item => item.str).join(' ').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+  }
+
+  function extrairDados(texto) {
+    const normal = texto.replace(/\r/g, '');
+    const linhas = normal.split('\n').map(l => l.trim()).filter(Boolean);
+    const entrada = normal.match(/Data\s+Entrada\s*\/\s*In[ií]cio\s*\n?\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(?::\d{2})?/i)
+      || normal.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(?::\d{2})?/);
+    const linhaVeiculo = linhaDepoisDe(linhas, /Ve[ií]culo/i) || '';
+    const placas = linhaVeiculo.match(/[A-Z]{3}-?[0-9][A-Z0-9][0-9]{2}/gi) || [];
+
+    return {
+      dataRegistrado: entrada?.[1] || '',
+      dataEntrada: entrada?.[1] || '',
+      horaRegistrado: entrada?.[2] || '',
+      inicio: entrada?.[2] || '',
+      dt: capturar(normal, /\bDT\s*[;:]\s*([A-Z0-9.-]+)/i),
+      transportadora: limparTransportadora(linhaDepoisDe(linhas, /^Transportadora\b/i) || capturar(normal, /Transportadora\s*\n\s*([^\n]+)/i)),
+      status: 'PÁTIO',
+      nfEnviada: 'NÃO',
+      cpfMotorista: capturar(normal, /CPF\s*[:;]\s*([\d.-]+)/i),
+      placaCavalo: placas[0] || capturar(normal, /Ve[ií]culo\s*\n\s*([A-Z0-9-]+)/i),
+      placaCarreta: placas[1] || capturar(normal, /Carreta\s*\n\s*([A-Z0-9-]+)/i)
+    };
+  }
+
+  function linhaDepoisDe(linhas, regex) {
+    const idx = linhas.findIndex(l => regex.test(l));
+    if (idx < 0) return '';
+    return linhas[idx + 1] || '';
+  }
+
+  function limparTransportadora(valor) {
+    return String(valor || '').replace(/\s+\d{4,}.*$/, '').trim();
+  }
+
+  function capturar(texto, regex) {
+    const match = texto.match(regex);
+    return (match?.[1] || '').trim();
+  }
+
+  function preencherValores(novos) {
+    CAMPOS.forEach(campo => { valores[campo.id] = novos[campo.id] ?? valores[campo.id] ?? ''; });
+  }
+
+  function renderCampos() {
+    document.getElementById('cabecalho').innerHTML = CAMPOS.map(c => `<th>${escapeHtml(c.label)}</th>`).join('');
+    document.getElementById('linhaCampos').innerHTML = CAMPOS.map(c => `<td><input id="campo_${c.id}" value="${escapeHtml(valores[c.id] || '')}" oninput="atualizarLinhaExcel()" /></td>`).join('');
+    atualizarLinhaExcel();
+  }
+
+  window.atualizarLinhaExcel = function atualizarLinhaExcel() {
+    CAMPOS.forEach(c => {
+      const el = document.getElementById(`campo_${c.id}`);
+      if (el) valores[c.id] = el.value;
+    });
+    document.getElementById('linhaExcel').value = CAMPOS.map(c => valores[c.id] || '').join('\t');
+  };
+
+  window.copiarLinha = async function copiarLinha() {
+    limparMensagens();
+    atualizarLinhaExcel();
+    const linha = document.getElementById('linhaExcel').value;
+    if (!linha.trim()) return mostrarErro('Não há linha para copiar.');
+    try {
+      await navigator.clipboard.writeText(linha);
+      mostrarOk('Linha copiada para a área de transferência. Agora é só colar no Excel.');
+    } catch (_) {
+      const area = document.getElementById('linhaExcel');
+      area.focus();
+      area.select();
+      document.execCommand('copy');
+      mostrarOk('Linha selecionada/copied. Se não colar, use Ctrl+C manualmente no campo.');
+    }
+  };
+
+  window.limparTudo = function limparTudo() {
+    document.getElementById('pdfInput').value = '';
+    document.getElementById('textoPdf').textContent = 'Nenhum PDF lido.';
+    preencherValores({ dataRegistrado:'', dataEntrada:'', horaRegistrado:'', inicio:'', dt:'', transportadora:'', status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:'' });
+    renderCampos();
+    limparMensagens();
+  };
+
+  function mostrarErro(msg) { const el = document.getElementById('erro'); el.textContent = msg; el.style.display = 'block'; document.getElementById('ok').style.display = 'none'; }
+  function mostrarOk(msg) { const el = document.getElementById('ok'); el.textContent = msg; el.style.display = 'block'; document.getElementById('erro').style.display = 'none'; }
+  function limparMensagens() { document.getElementById('erro').style.display = 'none'; document.getElementById('ok').style.display = 'none'; }
+  function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
+</script>
+</body>
+</html>
