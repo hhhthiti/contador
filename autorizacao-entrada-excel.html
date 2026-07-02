@@ -170,13 +170,40 @@
       horaRegistrado: entrada?.[2] || '',
       inicio: entrada?.[2] || '',
       dt: capturar(normal, /\bDT\s*[;:]\s*([A-Z0-9.-]+)/i),
-      transportadora: limparTransportadora(linhaDepoisDe(linhas, /^Transportadora\b/i) || capturar(normal, /Transportadora\s*\n\s*([^\n]+)/i)),
+      transportadora: extrairTransportadora(linhas),
       status: 'PÁTIO',
       nfEnviada: 'NÃO',
       cpfMotorista: capturar(normal, /CPF\s*[:;]\s*([\d.-]+)/i),
       placaCavalo: placas[0] || capturar(normal, /Ve[ií]culo\s*\n\s*([A-Z0-9-]+)/i),
       placaCarreta: placas[1] || capturar(normal, /Carreta\s*\n\s*([A-Z0-9-]+)/i)
     };
+  }
+
+
+  function extrairTransportadora(linhas) {
+    const idx = linhas.findIndex(l => /^Transportadora\b/i.test(l));
+    if (idx < 0) return '';
+
+    const candidatos = [];
+    const mesmaLinha = linhas[idx]
+      .replace(/^Transportadora\b/i, '')
+      .replace(/\bN[ÚU]MERO\b.*$/i, '')
+      .trim();
+    if (mesmaLinha) candidatos.push(mesmaLinha);
+
+    for (let i = idx + 1; i < Math.min(linhas.length, idx + 6); i++) {
+      candidatos.push(linhas[i]);
+    }
+
+    for (const candidato of candidatos) {
+      const valor = limparTransportadora(candidato);
+      if (valor && !ehRotuloOuCabecalho(valor)) return valor;
+    }
+    return '';
+  }
+
+  function ehRotuloOuCabecalho(valor) {
+    return /^(N[ÚU]MERO|Motorista|Visitante|Contato|Documento|RG|Ve[ií]culo|Tipo|Carreta|Opera[cç][aã]o|Data\b|P[aá]gina\b)/i.test(valor);
   }
 
   function linhaDepoisDe(linhas, regex) {
