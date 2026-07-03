@@ -2,6 +2,7 @@ const CACHE_NAME = "contador-sku-v1";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
+  "./geradordegrade.html",
   "./manifest.json",
   "./icons/panic.png",
   "./icons/clean.png",
