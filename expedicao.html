@@ -95,6 +95,8 @@
     { id:'dataRegistrado', label:'Data Registrado' },
     { id:'horaRegistrado', label:'Hora Registrado' },
     { id:'dt', label:'DT' },
+    { id:'grade', label:'Grade' },
+    { id:'tipo', label:'Tipo' },
     { id:'transportadora', label:'Tranportadora' },
     { id:'status', label:'Status' },
     { id:'nfEnviada', label:'NF Enviada ao Transportador?' },
@@ -104,7 +106,7 @@
   ];
 
   const valoresPadrao = {
-    dataRegistrado:'', horaRegistrado:'', dt:'', transportadora:'',
+    dataRegistrado:'', horaRegistrado:'', dt:'', grade:'', tipo:'', transportadora:'',
     status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:''
   };
   let linhasResultado = [{ ...valoresPadrao }];
@@ -163,6 +165,8 @@
       dataRegistrado: entrada?.[1] || '',
       horaRegistrado: entrada?.[2] || '',
       dt: capturar(normal, /\bDT\s*[;:]\s*([A-Z0-9.-]+)/i),
+      grade: '',
+      tipo: extrairTipoVeiculo(linhas),
       transportadora: extrairTransportadora(linhas),
       status: 'PÁTIO',
       nfEnviada: 'NÃO',
@@ -170,6 +174,21 @@
       placaCavalo: placas[0] || '',
       placaCarreta: placas[1] || ''
     }];
+  }
+
+  function extrairTipoVeiculo(linhas) {
+    const idxVeiculo = linhas.findIndex(l => /Ve[ií]culo/i.test(l));
+    if (idxVeiculo < 0) return '';
+    const linhaValores = linhas[idxVeiculo + 1] || '';
+    const trecho = linhaValores || linhas.slice(idxVeiculo, Math.min(linhas.length, idxVeiculo + 4)).join(' ');
+    const placasComHifen = (trecho.match(/\b[A-Z]{3}-?[A-Z0-9]{4}\b/gi) || []).filter(placa => /\d/.test(placa));
+    if (!placasComHifen.length) return '';
+    let tipo = trecho;
+    placasComHifen.forEach(placa => { tipo = tipo.replace(placa, ' '); });
+    return tipo
+      .replace(/Ve[ií]culo|Tipo\s+Ve[ií]culo|Cavalo/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   function extrairPlacas(linhas, textoCompleto) {

@@ -41,7 +41,7 @@
       <div class="header">
         <div>
           <h1>PDF Autorização → linhas para Excel</h1>
-          <div class="muted">Selecione o PDF de Autorização de Entrada/Serviço. A tela cria uma linha para cada NF encontrada, separada por TAB para colar direto no Excel.</div>
+          <div class="muted">Selecione o PDF de Autorização de Entrada/Serviço. A tela monta o layout informado, com Grade em branco, separado por TAB para colar direto no Excel.</div>
         </div>
         <div class="logos">
           <img src="icons/JSL.png" alt="Logo JSL" />
@@ -64,7 +64,7 @@
 
     <div class="card">
       <h2 style="margin:0 0 8px; font-size:1.1rem;">Resultado editável</h2>
-      <div class="small">Campos fixos: <b>PESO = 0</b> e <b>STATUS = em pátio</b>. Cada NF encontrada vira uma linha.</div>
+      <div class="small">Campos fixos: <b>Grade em branco</b>, <b>Status = PÁTIO</b> e <b>NF Enviada ao Transportador? = NÃO</b>. Se alguma leitura vier diferente, ajuste na tabela antes de copiar.</div>
       <div style="overflow:auto;">
         <table>
           <thead><tr id="cabecalho"></tr></thead>
@@ -94,18 +94,20 @@
   const CAMPOS = [
     { id:'dataRegistrado', label:'Data Registrado' },
     { id:'horaRegistrado', label:'Hora Registrado' },
-    { id:'nf', label:'NF' },
-    { id:'peso', label:'PESO' },
-    { id:'status', label:'STATUS' },
-    { id:'transportadora', label:'Transportadora' },
+    { id:'dt', label:'DT' },
+    { id:'grade', label:'Grade' },
+    { id:'tipo', label:'Tipo' },
+    { id:'transportadora', label:'Tranportadora' },
+    { id:'status', label:'Status' },
+    { id:'nfEnviada', label:'NF Enviada ao Transportador?' },
     { id:'cpfMotorista', label:'CPF Motorista' },
     { id:'placaCavalo', label:'Placa Cavalo' },
     { id:'placaCarreta', label:'Placa Carreta' }
   ];
 
   const valoresPadrao = {
-    dataRegistrado:'', horaRegistrado:'', nf:'', peso:'0', status:'em pátio',
-    transportadora:'', cpfMotorista:'', placaCavalo:'', placaCarreta:''
+    dataRegistrado:'', horaRegistrado:'', dt:'', grade:'', tipo:'', transportadora:'',
+    status:'PÁTIO', nfEnviada:'NÃO', cpfMotorista:'', placaCavalo:'', placaCarreta:''
   };
   let linhasResultado = [{ ...valoresPadrao }];
 
@@ -133,7 +135,7 @@
       document.getElementById('textoPdf').textContent = texto || 'Não foi possível extrair texto do PDF.';
       preencherValores(extrairDados(texto));
       renderCampos();
-      mostrarOk(`${linhasResultado.length} linha(s) montada(s). Confira e clique em copiar.`);
+      mostrarOk('PDF lido. Confira os campos e clique em copiar.');
     } catch (err) {
       mostrarErro('Falha ao ler o PDF: ' + err.message);
     }
@@ -158,31 +160,35 @@
     const entrada = normal.match(/Data\s+Entrada\s*\/\s*In[ií]cio\s*\n?\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(?::\d{2})?/i)
       || normal.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})(?::\d{2})?/);
     const placas = extrairPlacas(linhas, normal);
-    const dadosComuns = {
+
+    return [{
       dataRegistrado: entrada?.[1] || '',
       horaRegistrado: entrada?.[2] || '',
-      peso: '0',
-      status: 'em pátio',
+      dt: capturar(normal, /\bDT\s*[;:]\s*([A-Z0-9.-]+)/i),
+      grade: '',
+      tipo: extrairTipoVeiculo(linhas),
       transportadora: extrairTransportadora(linhas),
+      status: 'PÁTIO',
+      nfEnviada: 'NÃO',
       cpfMotorista: capturar(normal, /CPF\s*[:;]\s*([\d.-]+)/i),
       placaCavalo: placas[0] || '',
       placaCarreta: placas[1] || ''
-    };
-    const nfs = extrairNotasFiscais(linhas);
-    return (nfs.length ? nfs : ['']).map(nf => ({ ...dadosComuns, nf }));
+    }];
   }
 
-  function extrairNotasFiscais(linhas) {
-    const idxHeader = linhas.findIndex(l => /Nota\s+Fiscal/i.test(l) && /S[eé]rie/i.test(l));
-    if (idxHeader < 0) return [];
-    const nfs = [];
-    for (let i = idxHeader + 1; i < linhas.length; i++) {
-      const linha = linhas[i].trim();
-      if (/^(In[ií]cio|Final|Visto|ATEN[CÇ][AÃ]O|\d+\s+0,?0{2,})/i.test(linha)) break;
-      const match = linha.match(/^(\d{3,})\b/);
-      if (match) nfs.push(match[1]);
-    }
-    return [...new Set(nfs)];
+  function extrairTipoVeiculo(linhas) {
+    const idxVeiculo = linhas.findIndex(l => /Ve[ií]culo/i.test(l));
+    if (idxVeiculo < 0) return '';
+    const linhaValores = linhas[idxVeiculo + 1] || '';
+    const trecho = linhaValores || linhas.slice(idxVeiculo, Math.min(linhas.length, idxVeiculo + 4)).join(' ');
+    const placasComHifen = (trecho.match(/\b[A-Z]{3}-?[A-Z0-9]{4}\b/gi) || []).filter(placa => /\d/.test(placa));
+    if (!placasComHifen.length) return '';
+    let tipo = trecho;
+    placasComHifen.forEach(placa => { tipo = tipo.replace(placa, ' '); });
+    return tipo
+      .replace(/Ve[ií]culo|Tipo\s+Ve[ií]culo|Cavalo/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   function extrairPlacas(linhas, textoCompleto) {
